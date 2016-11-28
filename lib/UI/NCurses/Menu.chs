@@ -42,6 +42,13 @@ freeItem item = Curses $ do
     free nam
     free des
 
+-- itemValue :: Item -> Curses Bool
+-- itemValue item = Curses $ (/=0) <$> {# call item_value #} item
+
+-- setValue :: Item -> Bool -> Curses ()
+-- setValue item val = Curses $ checkRC "setValue" =<< 
+    -- {# call set_item_value #} item (fromEnum val)
+
 {# pointer *MENU as Menu nocode #}
 newtype Menu = Menu { menuPtr :: Ptr Menu }
 
@@ -107,6 +114,21 @@ menuWindow = Curses . {# call menu_win #}
 setWindow :: Menu -> Window -> Curses ()
 setWindow menu win = Curses $ do
     checkRC "setWin" =<< {# call set_menu_win #} menu win
+
+menuDriver :: Menu -> CInt -> Curses CInt
+menuDriver menu code = Curses $ {# call menu_driver #} menu code
+
+currentItem :: Menu -> Curses Item
+currentItem menu = Curses $ {# call current_item #} menu
+
+setItem :: Menu -> Item -> Curses ()
+setItem menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
+
+
+-- defines
+
+{#enum define MenuOpts
+    { 
 
 -- utils
 
