@@ -3,6 +3,8 @@
 
 module UI.NCurses.Menu where
 
+import Data.Char
+import Data.Foldable
 import Data.IORef
 import Data.Traversable
 
@@ -100,9 +102,8 @@ menuMark menu = Curses $ do
     peekCString str
 
 setMark :: Menu -> String -> Curses ()
-setMark menu str = Curses $ do
-    str' <- newCString str
-    checkRC "setMenuMark" =<< {# call set_menu_mark #} menu str'
+setMark menu str = Curses $ withCString str $ 
+    \str' -> checkRC "setMenuMark" =<< {# call set_menu_mark #} menu str'
 
 setSpacing :: Menu -> CInt -> CInt -> CInt -> Curses ()
 setSpacing menu desc rows cols = Curses $ do
@@ -118,19 +119,101 @@ setWindow menu win = Curses $ do
 menuDriver :: Menu -> CInt -> Curses CInt
 menuDriver menu code = Curses $ {# call menu_driver #} menu code
 
+request :: Menu -> Request -> Curses ()
+request menu req = (Curses . checkRC "request") =<< 
+    menuDriver menu (fe req)
+
+search :: Menu -> Char -> Curses ()
+search menu c = (Curses . checkRC "search") =<< 
+    menuDriver menu (fromIntegral $ 0xff .&. (ord c))
+
+searchs :: Menu -> String -> Curses ()
+searchs menu = traverse_ (search menu)
+
 currentItem :: Menu -> Curses Item
 currentItem menu = Curses $ {# call current_item #} menu
 
-setItem :: Menu -> Item -> Curses ()
-setItem menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
+setCurrent :: Menu -> Item -> Curses ()
+setCurrent menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
+
+menuOpts :: Menu -> Curses [MenuOpt]
+menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu
+
+setOpts :: Menu -> [MenuOpt] -> Curses ()
+setOpts menu opts = Curses $ checkRC "setOpts" =<<
+    {# call set_menu_opts #} menu (l2b opts)
+
+enableOpts :: Menu -> [MenuOpt] -> Curses ()
+enableOpts menu opts = Curses $ checkRC "enableOpts" =<<
+    {# call menu_opts_on #} menu (l2b opts)
+
+disableOpts :: Menu -> [MenuOpt] -> Curses ()
+disableOpts menu opts = Curses $ checkRC "disableOpts" =<<
+    {# call menu_opts_off #} menu (l2b opts)
+
+menuFormat :: Menu -> Curses (CInt, CInt)
+menuFormat menu = Curses $ do
+    p1 <- malloc
+    p2 <- malloc
+    {# call menu_format #} menu p1 p2
+    i1 <- peek p1
+    i2 <- peek p2
+    free p1
+    free p2
+    return (i1,i2)
+
+setFormat :: Menu -> CInt -> CInt -> Curses ()
+setFormat menu rows cols = Curses $ checkRC "setFormat" =<<
+    {# call set_menu_format #} menu rows cols
+
 
 
 -- defines
 
-{#enum define MenuOpts
-    { 
+{# enum define MenuOpt
+    { O_ONEVALUE as OneValue
+    , O_SHOWDESC as ShowDesc
+    , O_ROWMAJOR as RowMajor
+    , O_IGNORECASE as IgnoreCase
+    , O_SHOWMATCH as ShowMatch
+    , O_NONCYCLIC as NonCyclic
+    } deriving (Show, Eq, Ord) #} 
+
+{# enum define ItemOpt
+    { O_SELECTABLE as Selectable 
+    } deriving (Show, Eq, Ord) #}
+
+{# enum define Request
+    { REQ_LEFT_ITEM     as LeftItem
+    , REQ_RIGHT_ITEM    as RightItem
+    , REQ_UP_ITEM       as UpItem
+    , REQ_DOWN_ITEM     as DownItem
+    , REQ_SCR_ULINE     as UpLine
+    , REQ_SCR_DLINE     as DownLine
+    , REQ_SCR_DPAGE     as DownPage
+    , REQ_SCR_UPAGE     as UpPage
+    , REQ_FIRST_ITEM    as FirstItem
+    , REQ_LAST_ITEM     as LastItem
+    , REQ_NEXT_ITEM     as NextItem
+    , REQ_PREV_ITEM     as PrevItem
+    , REQ_TOGGLE_ITEM   as ToggleItem
+    , REQ_CLEAR_PATTERN as ClearPattern
+    , REQ_BACK_PATTERN  as BackPattern
+    , REQ_NEXT_MATCH    as NextMatch
+    , REQ_PREV_MATCH    as PrevMatch
+    } deriving (Show, Eq, Ord) #}
 
 -- utils
+
+l2b :: (Integral b, Enum a) => [a] -> b
+l2b xs = fromIntegral $ foldl (.|.) zeroBits (fromEnum <$> xs)
+
+b2l :: (FiniteBits a, Enum b) => a -> [b]
+b2l b = toEnum <$> bits where
+    bits = bit <$> (filter (testBit b) [0..(finiteBitSize b)])
+
+fe :: Enum a => a -> CInt
+fe = fromIntegral . fromEnum
 
 mallocItems :: Traversable t => t Item -> IO (Ptr Item)
 mallocItems items = do

@@ -67,6 +67,7 @@ instance A.Applicative Update where
 	(<*>) = ap
 
 newtype Window = Window { windowPtr :: F.Ptr Window }
+    deriving (Show, Eq, Ord)
 
 newtype CursesException = CursesException String
 	deriving (Show, Typeable)
