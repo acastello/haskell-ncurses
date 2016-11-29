@@ -32,6 +32,7 @@ module UI.NCurses
     , refresh
 	, newWindow
 	, closeWindow
+    , subWindow
 	, cloneWindow
 	, moveWindow
 	, windowPosition
@@ -278,6 +279,11 @@ newWindow rows cols x y = Curses $ do
 -- screen.
 closeWindow :: Window -> Curses ()
 closeWindow win = Curses ({# call delwin #} win >>= checkRC "closeWindow")
+
+-- | Create a subwindow, with coordinates relative to the parent's
+subWindow :: Window -> Integer -> Integer -> Integer -> Integer -> Curses Window
+subWindow win h w y x = Curses $ {# call subwin #} 
+    win (fromInteger h) (fromInteger w) (fromInteger y) (fromInteger x)
 
 -- | Create a separate window, initialised with the state of an existing
 -- window.

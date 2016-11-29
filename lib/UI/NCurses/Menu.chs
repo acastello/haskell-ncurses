@@ -112,9 +112,13 @@ setSpacing menu desc rows cols = Curses $ do
 menuWindow :: Menu -> Curses Window
 menuWindow = Curses . {# call menu_win #}
 
-setWindow :: Menu -> Window -> Curses ()
-setWindow menu win = Curses $ do
+setWin :: Menu -> Window -> Curses () 
+setWin menu win = Curses $ 
     checkRC "setWin" =<< {# call set_menu_win #} menu win
+
+setSubWin :: Menu -> Window -> Curses ()
+setSubWin menu win = Curses $ 
+    checkRC "setSubWin" =<< {# call set_menu_sub #} menu win
 
 menuDriver :: Menu -> CInt -> Curses CInt
 menuDriver menu code = Curses $ {# call menu_driver #} menu code
