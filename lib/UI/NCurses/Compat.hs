@@ -18,8 +18,8 @@
 -- This is a separate file because c2hs doesn't define MIN_VERSION_*
 -- macros when it's preprocessing a .chs file.
 module UI.NCurses.Compat
-	( void
-	) where
+    ( void
+    ) where
 
 #if MIN_VERSION_base(4,3,0)
 import           Control.Monad (void)

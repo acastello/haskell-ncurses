@@ -18,11 +18,11 @@
 module UI.NCurses.Types where
 
 import qualified Control.Applicative as A
-import           Control.Exception (Exception, throwIO)
-import           Control.Monad (liftM, ap)
+import           Control.Exception 
+import           Control.Monad 
 import           Control.Monad.Fix (MonadFix, mfix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Trans.Reader (ReaderT)
+import           Control.Monad.Reader (ReaderT)
 import           Data.Typeable
 import qualified Foreign as F
 import qualified Foreign.C as F
@@ -34,50 +34,59 @@ import qualified UI.NCurses.Enums as E
 newtype Curses a = Curses { unCurses :: IO a }
 
 instance Monad Curses where
-	return = Curses . return
-	m >>= f = Curses (unCurses m >>= unCurses . f)
+    return = Curses . return
+    m >>= f = Curses (unCurses m >>= unCurses . f)
 
 instance MonadFix Curses where
-	mfix f = Curses (mfix (unCurses . f))
+    mfix f = Curses (mfix (unCurses . f))
+
+instance A.Alternative Curses where
+    empty = mzero
+    (<|>) = mplus
+
+instance MonadPlus Curses where
+    mzero = liftIO mzero
+    m `mplus` n = Curses $ catch (unCurses m) 
+        $ \(SomeException _)->unCurses n
 
 instance MonadIO Curses where
-	liftIO = Curses
+    liftIO = Curses
 
 instance Functor Curses where
-	fmap = liftM
+    fmap = liftM
 
 instance A.Applicative Curses where
-	pure = return
-	(<*>) = ap
+    pure = return
+    (<*>) = ap
 
 newtype Update a = Update { unUpdate :: ReaderT Window Curses a }
 
 instance Monad Update where
-	return = Update . return
-	m >>= f = Update (unUpdate m >>= unUpdate . f)
+    return = Update . return
+    m >>= f = Update (unUpdate m >>= unUpdate . f)
 
 instance MonadFix Update where
-	mfix f = Update (mfix (unUpdate . f))
+    mfix f = Update (mfix (unUpdate . f))
 
 instance Functor Update where
-	fmap = liftM
+    fmap = liftM
 
 instance A.Applicative Update where
-	pure = return
-	(<*>) = ap
+    pure = return
+    (<*>) = ap
 
 newtype Window = Window { windowPtr :: F.Ptr Window }
     deriving (Show, Eq, Ord)
 
 newtype CursesException = CursesException String
-	deriving (Show, Typeable)
+    deriving (Show, Typeable)
 
 instance Exception CursesException
 
 checkRC :: String -> F.CInt -> IO ()
 checkRC name rc = if toInteger rc == E.fromEnum E.ERR
-	then throwIO (CursesException (name ++ ": rc == ERR"))
-	else return ()
+    then throwIO (CursesException (name ++ ": rc == ERR"))
+    else return ()
 
 cToBool :: Integral a => a -> Bool
 cToBool 0 = False

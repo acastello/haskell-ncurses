@@ -33,23 +33,23 @@ import           Prelude (Integer, error, show, (++), compare, Ordering(..))
 #endif
 
 class Enum a where
-	toEnum :: Integer -> a
-	fromEnum :: a -> Integer
+    toEnum :: Integer -> a
+    fromEnum :: a -> Integer
 
-	-- c2hs 0.18.1 additionally defines these in its Enum instances,
-	-- but we don't use them.
-	pred, succ :: a -> a
-	pred = error "ncurses Enum: pred"
-	succ = error "ncurses Enum: succ"
-	
-	enumFrom :: a -> [a]
-	enumFrom = error "ncurses Enum: enumFrom"
-	enumFromThen :: a -> a -> [a]
-	enumFromThen = error "ncurses Enum: enumFromThen"
-	enumFromTo :: a -> a -> [a]
-	enumFromTo = error "ncurses Enum: enumFromTo"
-	enumFromThenTo :: a -> a -> a -> [a]
-	enumFromThenTo = error "ncurses Enum: enumFromThenTo"
+    -- c2hs 0.18.1 additionally defines these in its Enum instances,
+    -- but we don't use them.
+    pred, succ :: a -> a
+    pred = error "ncurses Enum: pred"
+    succ = error "ncurses Enum: succ"
+    
+    enumFrom :: a -> [a]
+    enumFrom = error "ncurses Enum: enumFrom"
+    enumFromThen :: a -> a -> [a]
+    enumFromThen = error "ncurses Enum: enumFromThen"
+    enumFromTo :: a -> a -> [a]
+    enumFromTo = error "ncurses Enum: enumFromTo"
+    enumFromThenTo :: a -> a -> a -> [a]
+    enumFromThenTo = error "ncurses Enum: enumFromThenTo"
 
 
 

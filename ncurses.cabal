@@ -83,6 +83,7 @@ library
   build-depends:
       base >= 4.0 && < 5.0
     , containers >= 0.2
+    , mtl
     , text >= 0.7
     , transformers >= 0.2
 
@@ -114,6 +115,7 @@ library
     UI.NCurses
     UI.NCurses.Panel
     UI.NCurses.Menu
+    UI.NCurses.Simple
 
   other-modules:
     UI.NCurses.Enums

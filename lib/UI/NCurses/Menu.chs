@@ -26,7 +26,7 @@ import UI.NCurses.Types
 {# pointer *WINDOW as Window nocode #}
 {# pointer *ITEM as Item nocode #}
 newtype Item = Item { itemPtr :: Ptr Item }
-    deriving (Storable, Show, Eq)
+    deriving (Storable, Show, Eq, Ord)
 
 nullItem = Item nullPtr
 
@@ -53,6 +53,7 @@ freeItem item = Curses $ do
 
 {# pointer *MENU as Menu nocode #}
 newtype Menu = Menu { menuPtr :: Ptr Menu }
+    deriving (Storable, Show, Eq, Ord)
 
 newMenu :: Traversable t => t Item -> Curses Menu
 newMenu items = Curses $ do
