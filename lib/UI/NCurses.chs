@@ -211,7 +211,7 @@ type MMaskT = {# type mmask_t #}
 -- After the 'Curses' block has finished running, the terminal is reset
 -- to text mode.
 runCurses :: Curses a -> IO a
-runCurses = bracket_ initCurses ({# call endwin #}>>print ()) . unCurses where
+runCurses = bracket_ initCurses {# call endwin #} . unCurses where
     allEvents = fromInteger (E.fromEnum E.ALL_MOUSE_EVENTS)
     initCurses = do
         void {# call initscr #}
@@ -282,8 +282,13 @@ closeWindow win = Curses ({# call delwin #} win >>= checkRC "closeWindow")
 
 -- | Create a subwindow, with coordinates relative to the parent's
 subWindow :: Window -> Integer -> Integer -> Integer -> Integer -> Curses Window
-subWindow win h w y x = Curses $ {# call subwin #} 
-    win (fromInteger h) (fromInteger w) (fromInteger y) (fromInteger x)
+subWindow win h w y x = Curses $ do
+    w <- {# call subwin #} win 
+        (fromInteger h) (fromInteger w) (fromInteger y) (fromInteger x)
+    if windowPtr w == nullPtr then
+        throwIO (CursesException "subWindow: subwin() returned NULL")
+    else
+        return w
 
 -- | Create a separate window, initialised with the state of an existing
 -- window.
