@@ -100,8 +100,8 @@ newMenu yo xo yf xf = do
         ((subtract 1) <$> yf) ((subtract 1) <$> xf)
     m <- lift $ do
         m' <- M.newMenu []
-        -- M.setWin m' (w_win w)
-        -- M.setSubWin m' (w_win sw)
+        M.setWin m' (w_win w)
+        M.setSubWin m' (w_win sw)
         return m'
     return $ Menu m w sw
 
@@ -130,7 +130,7 @@ test = runCurses $ do
     lift $ N.getEvent dft (Just 10)
     -- st <- get
     w <- newWindow (0,3) (0,3) (1,-3) (1,-3)
-    m <- newMenu (0,1) (0,1) (0,10) (0,20)
+    m <- newMenu (0,1) (0,1) (0,20) (0,20)
     asd m ["1", "2", "c"]
     lift $ N.updateWindow (w_win w) $ do  
         N.drawBox Nothing Nothing
@@ -149,5 +149,27 @@ test = runCurses $ do
             _ -> return ()       
     get
 
-test2 = N.runCurses $ do
-    N.screenSize
+test2 = runCurses $ do
+    menu <- newMenu (0,1) (0,1) (0,10) (0,20)
+    w <- lift $ M.menuWindow (m_menu menu)
+    asd menu ["100", "200", "ccc"]
+    lift $ do
+        M.postMenu (m_menu menu)
+        N.refresh
+    lift $ N.refresh
+    flip mplus (return ()) $ forever $ do
+        ev <- lift $ N.getEvent w (Just 100)
+        case ev of
+            Just (N.EventCharacter 'q') -> liftIO mzero
+            Just N.EventResized -> do
+                adjust
+                lift $ N.updateWindow w $ N.drawBox Nothing Nothing
+                -- lift $ N.render
+                liftIO $ print 1
+            _ -> return ()       
+    get
+    
+test3 = runCurses $ do
+    w <- newWindow (0,0) (0,0) (1,0) (1,0)
+    -- sw <- newSubWindow w (0,0) (0,0) (1,0) (1,0)
+    return (w)
