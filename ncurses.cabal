@@ -105,9 +105,9 @@ library
     if os(darwin) || os(freebsd) || flag(force-narrow-library)
       cc-options: -DHSNCURSES_NARROW_HEADER
     if os(darwin) || flag(force-narrow-library)
-      extra-libraries: panel menu ncurses pthread
+      extra-libraries: panel menu form ncurses pthread
     else
-      extra-libraries: panelw menuw ncursesw pthread
+      extra-libraries: panelw menuw formw ncursesw pthread
 
   c-sources: cbits/hsncurses-shim.c
 
@@ -116,6 +116,7 @@ library
     UI.NCurses.Panel
     UI.NCurses.Menu
     UI.NCurses.Simple
+    UI.NCurses.Form
 
   other-modules:
     UI.NCurses.Enums
