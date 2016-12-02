@@ -31,6 +31,7 @@ newtype Item = Item { itemPtr :: Ptr Item }
 nullItem = Item nullPtr
 
 newItem :: String -> String -> Curses Item
+newItem "" desc = newItem " " desc
 newItem name desc = Curses $ do
     nam <- newCString name
     des <- newCString desc

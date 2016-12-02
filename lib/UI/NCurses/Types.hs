@@ -45,7 +45,7 @@ instance A.Alternative Curses where
     (<|>) = mplus
 
 instance MonadPlus Curses where
-    mzero = liftIO mzero
+    mzero = Curses $ throwIO (CursesException "mzero")
     m `mplus` n = Curses $ catch (unCurses m) 
         $ \(SomeException _)->unCurses n
 
