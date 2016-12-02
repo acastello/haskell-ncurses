@@ -115,7 +115,7 @@ library
     UI.NCurses
     UI.NCurses.Panel
     UI.NCurses.Menu
-    UI.NCurses.Simple
+    -- UI.NCurses.Simple
     -- UI.NCurses.Form
 
   other-modules:
