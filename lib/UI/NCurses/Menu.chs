@@ -111,8 +111,11 @@ setSpacing :: Menu -> CInt -> CInt -> CInt -> Curses ()
 setSpacing menu desc rows cols = Curses $ do
     checkRC "setSpacing" =<< {# call set_menu_spacing #} menu desc rows cols
 
-menuWindow :: Menu -> Curses Window
-menuWindow = Curses . {# call menu_win #}
+menuWin :: Menu -> Curses Window
+menuWin = Curses . {# call menu_win #}
+
+menuSubWin :: Menu -> Curses Window
+menuSubWin = Curses . {# call menu_sub #}
 
 setWin :: Menu -> Window -> Curses () 
 setWin menu win = Curses $ 
