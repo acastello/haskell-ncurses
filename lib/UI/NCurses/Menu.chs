@@ -6,10 +6,11 @@ module UI.NCurses.Menu where
 import Data.Char
 import Data.Foldable
 import Data.IORef
+import Data.Maybe (catMaybes)
 import Data.Traversable
 
 import Control.Monad
-import Control.Exception (throwIO)
+import Control.Exception (throwIO, try)
 
 import Foreign
 import Foreign.C
@@ -28,6 +29,11 @@ import UI.NCurses.Types
 newtype Item = Item { itemPtr :: Ptr Item }
     deriving (Storable, Show, Eq, Ord)
 
+instance UserData Item where
+    getDataPtr = Curses . {# call item_userptr #}
+    setDataPtr e v = Curses $ checkRC "setUserPtr" =<< 
+        {# call set_item_userptr #} e v
+
 nullItem = Item nullPtr
 
 newItem :: String -> String -> Curses Item
@@ -37,11 +43,19 @@ newItem name desc = Curses $ do
     des <- newCString desc
     {# call new_item #} nam des
 
+newItemWith :: String -> String -> a -> Curses Item
+newItemWith nam des v = do
+    item <- newItem nam des
+    setData item v
+    return item
+
 freeItem :: Item -> Curses ()
 freeItem item = Curses $ do
     nam <- {# call item_name #} item
     des <- {# call item_description #} item
+    sptr <- {# call item_userptr #} item
     checkRC "freeItem" =<< {# call free_item #} item
+    unless (sptr==nullPtr) $ freeStablePtr $ castPtrToStablePtr sptr
     free nam
     free des
 
@@ -78,6 +92,10 @@ menuItems menu = Curses $ do
     else
         peekArray0 nullItem ptr
 
+menuData :: Menu -> Curses [a]
+menuData menu = fmap catMaybes $
+    menuItems menu >>= traverse getDataMaybe 
+
 itemCount :: Menu -> Curses CInt
 itemCount menu = Curses $ {# call item_count #} menu
 
@@ -86,6 +104,8 @@ setItems menu xs = Curses $ do
     old <- {# call menu_items #} menu
     ptr <- mallocItems xs
     checkRC "set_menu_items" =<< {# call set_menu_items #} menu ptr
+    unless (old==nullPtr) $ peekArray0 (Item nullPtr) old 
+        >>= unCurses . traverse_ freeItem
     free old
 
 postMenu :: Menu -> Curses ()
@@ -139,11 +159,36 @@ search menu c = (Curses . checkRC "search") =<<
 searchs :: Menu -> String -> Curses ()
 searchs menu = traverse_ (search menu)
 
+topRow :: Menu -> Curses CInt
+topRow = Curses . {# call top_row #}
+    
+setTopRow :: Menu -> CInt -> Curses ()
+setTopRow menu i = Curses $
+    checkRC "setTopRow" =<< {# call set_top_row #} menu i
+
+getIndex :: Menu -> Curses CInt
+getIndex menu = Curses $ do
+    {# call item_index #} =<< {# call current_item #} menu
+
+setIndex :: Menu -> CInt -> Curses ()
+setIndex menu i = Curses $ do
+    ptr <- {# call menu_items #} menu
+    item <- peekElemOff ptr (fromIntegral i)
+    checkRC "setIndex" =<< {# call set_current_item #} menu item
+
 currentItem :: Menu -> Curses Item
 currentItem menu = Curses $ {# call current_item #} menu
 
 setCurrent :: Menu -> Item -> Curses ()
 setCurrent menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
+
+currentData :: Menu -> Curses (Maybe a)
+currentData menu = do
+    item <- currentItem menu
+    if item==Item nullPtr then
+        return Nothing
+    else
+        getDataMaybe item
 
 menuOpts :: Menu -> Curses [MenuOpt]
 menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu

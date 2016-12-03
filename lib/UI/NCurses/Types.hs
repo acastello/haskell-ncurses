@@ -29,6 +29,24 @@ import qualified Foreign.C as F
 
 import qualified UI.NCurses.Enums as E
 
+class UserData a where
+    getData :: a -> Curses b
+    getData e = do
+        ptr <- getDataPtr e
+        when (ptr==F.nullPtr) $ Curses $ throwIO $ CursesException "no userptr"
+        Curses $ F.deRefStablePtr $ F.castPtrToStablePtr ptr
+    setData :: a -> b -> Curses ()
+    setData e v = do
+        ptr <- getDataPtr e
+        when (ptr/=F.nullPtr) $Curses $F.freeStablePtr $ F.castPtrToStablePtr ptr
+        ptr' <- Curses $ F.newStablePtr v
+        setDataPtr e $ (F.castStablePtrToPtr ptr')
+    getDataMaybe :: a -> Curses (Maybe b)
+    getDataMaybe e = fmap (either (\(CursesException _) -> Nothing) Just) $
+        Curses $ try (unCurses $ getData e)
+    getDataPtr  :: a -> Curses (F.Ptr ())
+    setDataPtr  :: a -> F.Ptr () -> Curses ()
+
 -- | A small wrapper around 'IO', to ensure the @ncurses@ library is
 -- initialized while running.
 newtype Curses a = Curses { unCurses :: IO a }

@@ -23,6 +23,14 @@ module UI.NCurses
     , Window
     , CursesException
     
+    -- * UserData class
+    , UserData
+    , getData
+    , setData
+    , getDataMaybe
+    , getDataPtr
+    , setDataPtr
+    
     -- * Initialization
     , runCurses
     , defaultWindow
