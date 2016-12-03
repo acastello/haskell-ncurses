@@ -207,11 +207,8 @@ import           UI.NCurses.Types
 #include "cbits/hsncurses-shim.h"
 
 {# pointer *WINDOW as Window nocode #}
-{# pointer *cchar_t as CCharT newtype #}
+{# pointer *cchar_t as CCharT nocode #}
 {# pointer *wchar_t as CWString nocode #}
-
-type AttrT = {# type attr_t #}
-type MMaskT = {# type mmask_t #}
 
 -- | Put the terminal in graphical mode, including enabling special keys,
 -- colors, and mouse events (if supported).
@@ -539,50 +536,6 @@ setBackground g = withWindow_ "setBackground" $ \win ->
     withMaybeGlyph (Just g) $ \pChar ->
     {# call wbkgrndset #} win pChar >> return 0
 
-data Attribute
-    = AttributeColor ColorID -- ^ A_COLOR
-    | AttributeStandout -- ^ A_STANDOUT
-    | AttributeUnderline -- ^ A_UNDERLINE
-    | AttributeReverse -- ^ A_REVERSE
-    | AttributeBlink -- ^ A_BLINK
-    | AttributeDim -- ^ A_DIM
-    | AttributeBold -- ^ A_BOLD
-    | AttributeAltCharset -- ^ A_ALTCHARSET
-    | AttributeInvisible -- ^ A_INVISIBLE
-    | AttributeProtect -- ^ A_PROTECT
-    | AttributeHorizontal -- ^ A_HORIZONTAL
-    | AttributeLeft -- ^ A_LEFT
-    | AttributeLow -- ^ A_LOW
-    | AttributeRight -- ^ A_RIGHT
-    | AttributeTop -- ^ A_TOP
-    | AttributeVertical -- ^ A_VERTICAL
-    deriving (Show, Eq)
-
-attrEnum :: E.Attribute -> AttrT
-attrEnum = fromInteger . E.fromEnum
-
-attrToInt :: Attribute -> AttrT
-attrToInt x = case x of
-    AttributeStandout    -> attrEnum E.WA_STANDOUT
-    AttributeUnderline   -> attrEnum E.WA_UNDERLINE
-    AttributeReverse     -> attrEnum E.WA_REVERSE
-    AttributeBlink       -> attrEnum E.WA_BLINK
-    AttributeDim         -> attrEnum E.WA_DIM
-    AttributeBold        -> attrEnum E.WA_BOLD
-    AttributeAltCharset  -> attrEnum E.WA_ALTCHARSET
-    AttributeInvisible   -> attrEnum E.WA_INVIS
-    AttributeProtect     -> attrEnum E.WA_PROTECT
-    AttributeHorizontal  -> attrEnum E.WA_HORIZONTAL
-    AttributeLeft        -> attrEnum E.WA_LEFT
-    AttributeLow         -> attrEnum E.WA_LOW
-    AttributeRight       -> attrEnum E.WA_RIGHT
-    AttributeTop         -> attrEnum E.WA_TOP
-    AttributeVertical    -> attrEnum E.WA_VERTICAL
-
-    -- Colors get special handling: the function COLOR_PAIR converts an
-    -- NCURSES_PAIRS_T to an attr_t.
-    AttributeColor (ColorID cid) -> fromIntegral ({# call pure unsafe COLOR_PAIR as c_COLOR_PAIR #} (fromIntegral cid))
-
 -- | Set a single 'Attribute' on the current window. No other attributes
 -- are modified.
 setAttribute :: Attribute -> Bool -> Update ()
@@ -599,62 +552,6 @@ setAttributes attrs = withWindow_ "setAttributes" $ \win ->
     {# call wattr_get #} win nullPtr pPair nullPtr >>= checkRC "setAttributes"
     colorPair <- peek pPair
     {# call wattr_set #} win cint colorPair nullPtr
-
-data Color
-    = ColorBlack
-    | ColorRed
-    | ColorGreen
-    | ColorYellow
-    | ColorBlue
-    | ColorMagenta
-    | ColorCyan
-    | ColorWhite
-
-    -- | An unspecified default terminal color, for terminals that support
-    -- ISO/IEC 6429 escape sequences (or equivalent).
-    --
-    -- This is most useful for terminals with translucent backgrounds.
-    | ColorDefault
-
-    -- | A color outside of the standard COLOR_* enum space, for terminals
-    -- that support more than eight colors.
-    --
-    -- Color-related functions may fail if a Color is provided that cannot
-    -- be supported by the current terminal. Users are responsible for
-    -- checking 'maxColor' when using extended colors.
-    | Color Int16
-    deriving (Show, Eq)
-
--- Get the maximum 'Color' supported by the current terminal.
-maxColor :: Curses Integer
-maxColor = Curses $ do
-    count <- toInteger `fmap` peek c_COLORS
-    return (count - 1)
-
-foreign import ccall "static &COLORS"
-    c_COLORS :: Ptr CInt
-
-
--- | A wrapper around 'Integer' to ensure clients don&#x2019;t use an
--- uninitialized color in an attribute.
-newtype ColorID = ColorID CShort
-    deriving (Show, Eq)
-
-colorEnum :: E.Color -> CShort
-colorEnum = fromInteger . E.fromEnum
-
-colorToShort :: Color -> CShort
-colorToShort x = case x of
-    Color n      -> CShort n
-    ColorBlack   -> colorEnum E.COLOR_BLACK
-    ColorRed     -> colorEnum E.COLOR_RED
-    ColorGreen   -> colorEnum E.COLOR_GREEN
-    ColorYellow  -> colorEnum E.COLOR_YELLOW
-    ColorBlue    -> colorEnum E.COLOR_BLUE
-    ColorMagenta -> colorEnum E.COLOR_MAGENTA
-    ColorCyan    -> colorEnum E.COLOR_CYAN
-    ColorWhite   -> colorEnum E.COLOR_WHITE
-    ColorDefault -> colorEnum E.COLOR_DEFAULT
 
 -- | Check if the terminal supports color. If it doesn&#x2019;t,
 -- alternative indicators (such as underlines or bold) should be used.
@@ -734,26 +631,6 @@ maxColorID = Curses $ do
 
 foreign import ccall "static &COLOR_PAIRS"
     c_COLOR_PAIRS :: Ptr CInt
-
--- | A glyph is a character, typically spacing, combined with a set of
--- attributes.
-data Glyph = Glyph
-    { glyphCharacter :: Char
-    , glyphAttributes :: [Attribute]
-    }
-    deriving (Show, Eq)
-
-withMaybeGlyph :: Maybe Glyph -> (CCharT -> IO a) -> IO a
-withMaybeGlyph Nothing io = io (CCharT nullPtr)
-withMaybeGlyph (Just g) io = withGlyph g io
-
-withGlyph :: Glyph -> (CCharT -> IO a) -> IO a
-withGlyph (Glyph char attrs) io =
-    let cAttrs = foldl' (\acc a -> acc .|. attrToInt a) 0 attrs in
-    withCWStringLen [char] $ \(cChars, cCharsLen) ->
-    allocaBytes {# sizeof cchar_t #} $ \pBuf -> do
-    {# call hsncurses_init_cchar_t #} (CCharT pBuf) cAttrs cChars (fromIntegral cCharsLen)
-    io (CCharT pBuf)
 
 -- | Upper left corner
 glyphCornerUL :: Glyph

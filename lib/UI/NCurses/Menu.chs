@@ -12,20 +12,30 @@ import Data.Traversable
 import Control.Monad
 import Control.Exception (throwIO, try)
 
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
 
-import UI.NCurses ()
+import UI.NCurses 
 import UI.NCurses.Types
 
+#include "cbits/mavericks-c2hs-workaround.h"
+
+#define NCURSES_ENABLE_STDBOOL_H 0
+#define _XOPEN_SOURCE_EXTENDED
+#define NCURSES_NOMACROS
 #ifdef HSNCURSES_NARROW_HEADER
 #   include <menu.h>
 #else
 #   include <ncursesw/menu.h>
 #endif
 
+#include "cbits/hsncurses-shim.h"
+
 {# pointer *WINDOW as Window nocode #}
 {# pointer *ITEM as Item nocode #}
+{# pointer *cchar_t as CCharT nocode #}
+{# pointer *wchar_t as CWString nocode #}
+
 newtype Item = Item { itemPtr :: Ptr Item }
     deriving (Storable, Show, Eq, Ord)
 
@@ -190,6 +200,14 @@ currentData menu = do
     else
         getDataMaybe item
 
+setForeground :: Menu -> [Attribute] -> Curses ()
+setForeground menu attrs = Curses $ checkRC "setForeground" =<< 
+    {# call set_menu_fore #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+
+setBackground :: Menu -> Glyph -> Curses ()
+setBackground menu glyph = Curses $ withGlyph' glyph $ \pglyph ->
+    checkRC "setBackground" =<< {# call set_menu_back #} menu pglyph
+
 menuOpts :: Menu -> Curses [MenuOpt]
 menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu
 
@@ -280,3 +298,11 @@ mallocItems items = do
 pokeTrav :: (Storable a, Traversable t) => Ptr a -> t a -> IO ()
 pokeTrav ptr items = sequence_ . snd $ mapAccumL
     (\i x -> (i+1, pokeElemOff ptr i x)) 0 items
+
+-- withGlyph :: Glyph -> (CCharT -> IO a) -> IO a
+-- withGlyph (Glyph char attrs) io =
+    -- let cAttrs = foldl' (\acc a -> acc .|. attrToInt a) 0 attrs in
+    -- withCWStringLen [char] $ \(cChars, cCharsLen) ->
+    -- allocaBytes {# sizeof cchar_t #} $ \pBuf -> do
+    -- {# call hsncurses_init_cchar_t #} (CCharT pBuf) cAttrs cChars (fromIntegral cCharsLen)
+    -- -- io (CCharT pBuf)
