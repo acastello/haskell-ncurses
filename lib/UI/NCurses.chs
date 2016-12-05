@@ -37,7 +37,7 @@ module UI.NCurses
     
     -- * Window management
     , refreshWindow
-    , refresh
+    -- , refresh
     , newWindow
     , closeWindow
     , subWindow
@@ -147,6 +147,7 @@ module UI.NCurses
     -- ** Mouse events
     , ButtonState (..)
     , MouseState (..)
+    , mouseInterval
     
     -- * Cursor mode
     , CursorMode(CursorInvisible, CursorVisible, CursorVeryVisible)
@@ -1021,6 +1022,9 @@ data MouseState = MouseState
     , mouseControl :: Bool
     }
     deriving (Show, Eq)
+
+mouseInterval :: CInt -> Curses ()
+mouseInterval int = Curses $ void $ {# call mouseinterval #} int
 
 parseMouseState :: MMaskT -> MouseState
 parseMouseState mask = MouseState (0, 0, 0) buttons alt shift ctrl where

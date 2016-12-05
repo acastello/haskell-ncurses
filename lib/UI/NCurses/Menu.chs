@@ -21,7 +21,9 @@ import UI.NCurses.Types
 #include "cbits/mavericks-c2hs-workaround.h"
 
 #define NCURSES_ENABLE_STDBOOL_H 0
-#define _XOPEN_SOURCE_EXTENDED
+#ifndef _XOPEN_SOURCE_EXTENDED
+#   define _XOPEN_SOURCE_EXTENDED
+#endif
 #define NCURSES_NOMACROS
 #ifdef HSNCURSES_NARROW_HEADER
 #   include <menu.h>
@@ -114,7 +116,7 @@ setItems menu xs = Curses $ do
     old <- {# call menu_items #} menu
     ptr <- mallocItems xs
     checkRC "set_menu_items" =<< {# call set_menu_items #} menu ptr
-    unless (old==nullPtr) $ peekArray0 (Item nullPtr) old 
+    unless (old==nullPtr) $ peekArray0 nullItem old 
         >>= unCurses . traverse_ freeItem
     free old
 
@@ -162,6 +164,18 @@ request :: Menu -> Request -> Curses ()
 request menu req = (Curses . checkRC "request") =<< 
     menuDriver menu (fe req)
 
+clickMenu :: Menu -> CInt -> CInt -> Curses ()
+clickMenu menu y x = do
+    win <- menuSubWin menu
+    (y',_) <- updateWindow win windowPosition
+    top <- topRow menu
+    n <- itemCount menu
+    let index = (y-fromIntegral y')+top
+    when (index<n && index>=0) $ do
+        setIndex menu index
+        updateWindow win (return ())
+        render  
+
 search :: Menu -> Char -> Curses ()
 search menu c = (Curses . checkRC "search") =<< 
     menuDriver menu (fromIntegral $ 0xff .&. (ord c))
@@ -204,9 +218,13 @@ setForeground :: Menu -> [Attribute] -> Curses ()
 setForeground menu attrs = Curses $ checkRC "setForeground" =<< 
     {# call set_menu_fore #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
 
-setBackground :: Menu -> Glyph -> Curses ()
-setBackground menu glyph = Curses $ withGlyph' glyph $ \pglyph ->
-    checkRC "setBackground" =<< {# call set_menu_back #} menu pglyph
+setUnselectable :: Menu -> [Attribute] -> Curses ()
+setUnselectable menu attrs = Curses $ checkRC "setUnselectable" =<<
+    {# call set_menu_grey #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+
+setBackground :: Menu -> [Attribute] -> Curses ()
+setBackground menu attrs = Curses $ checkRC "setBackground" =<<
+    {# call set_menu_back #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
 
 menuOpts :: Menu -> Curses [MenuOpt]
 menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu
@@ -238,6 +256,14 @@ setFormat :: Menu -> CInt -> CInt -> Curses ()
 setFormat menu rows cols = Curses $ checkRC "setFormat" =<<
     {# call set_menu_format #} menu rows cols
 
+isSelectable :: Item -> Curses Bool
+isSelectable it = Curses $ 
+    (=={# const O_SELECTABLE #}) <$> {# call item_opts #} it
+
+selectable :: Item -> Bool -> Curses ()
+selectable item st = Curses $ do
+    checkRC "selectable" =<< {# call set_item_opts #} item 
+        (if st then {# const O_SELECTABLE #} else 0)
 
 
 -- defines
@@ -250,10 +276,6 @@ setFormat menu rows cols = Curses $ checkRC "setFormat" =<<
     , O_SHOWMATCH as ShowMatch
     , O_NONCYCLIC as NonCyclic
     } deriving (Show, Eq, Ord) #} 
-
-{# enum define ItemOpt
-    { O_SELECTABLE as Selectable 
-    } deriving (Show, Eq, Ord) #}
 
 {# enum define Request
     { REQ_LEFT_ITEM     as LeftItem
@@ -290,19 +312,15 @@ fe = fromIntegral . fromEnum
 mallocItems :: Traversable t => t Item -> IO (Ptr Item)
 mallocItems items = do
     let l = length items
-    ptr <- mallocArray (l+1)
-    pokeTrav ptr items
-    pokeElemOff ptr l nullItem
-    return ptr
+    if (l==0) then 
+        return nullPtr
+    else do 
+        ptr <- mallocArray (l+1)
+        pokeTrav ptr items
+        pokeElemOff ptr l nullItem
+        return ptr
 
 pokeTrav :: (Storable a, Traversable t) => Ptr a -> t a -> IO ()
 pokeTrav ptr items = sequence_ . snd $ mapAccumL
     (\i x -> (i+1, pokeElemOff ptr i x)) 0 items
 
--- withGlyph :: Glyph -> (CCharT -> IO a) -> IO a
--- withGlyph (Glyph char attrs) io =
-    -- let cAttrs = foldl' (\acc a -> acc .|. attrToInt a) 0 attrs in
-    -- withCWStringLen [char] $ \(cChars, cCharsLen) ->
-    -- allocaBytes {# sizeof cchar_t #} $ \pBuf -> do
-    -- {# call hsncurses_init_cchar_t #} (CCharT pBuf) cAttrs cChars (fromIntegral cCharsLen)
-    -- -- io (CCharT pBuf)
