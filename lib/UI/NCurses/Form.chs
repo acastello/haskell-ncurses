@@ -47,6 +47,14 @@ fieldContents fi = Curses $ do
     str <- {# call field_buffer #} fi 0
     peekCString str
 
+setFieldSize :: Field -> CInt -> Curses ()
+setFieldSize field n = Curses $ checkRC "setFieldSize" =<<
+    {# call set_max_field #} field n
+
+setChanged :: Field -> Curses ()
+setChanged field = Curses $ checkRC "setChanged" =<<
+    set_field_status field (cFromBool True)
+
 setContents :: Field -> String -> Curses ()
 setContents fi str = Curses $ do
     ptr <- newCString str
@@ -54,7 +62,7 @@ setContents fi str = Curses $ do
 
 setBackground :: Field -> [Attribute] -> Curses ()
 setBackground fi attrs = Curses $ checkRC "setBackground" =<<
-    {# call set_field_fore #} fi (foldl (\i j -> i .|. attrToInt j) 0 attrs) 
+    {# call set_field_back #} fi (foldl (\i j -> i .|. attrToInt j) 0 attrs) 
 
 setForeground :: Field -> [Attribute] -> Curses ()
 setForeground fi attrs = Curses $ checkRC "setForeground" =<<
@@ -63,6 +71,14 @@ setForeground fi attrs = Curses $ checkRC "setForeground" =<<
 setOpts :: Field -> [FieldOpt] -> Curses ()
 setOpts field opts = Curses $ checkRC "setOpts" =<<
     {# call set_field_opts #} field (l2b opts)
+
+enableOpts :: Field -> [FieldOpt] -> Curses ()
+enableOpts field opts = Curses $ checkRC "enableOpts" =<<
+    {# call field_opts_on #} field (l2b opts)
+
+disableOpts :: Field -> [FieldOpt] -> Curses ()
+disableOpts field opts = Curses $ checkRC "disableOpts" =<<
+    {# call field_opts_off #} field (l2b opts)
 
 fieldOpts :: Field -> Curses [FieldOpt]
 fieldOpts field = Curses $ b2l <$> {# call field_opts #} field
@@ -134,3 +150,9 @@ mallocFields fs = do
 pokeTrav :: (Storable a, Traversable t) => Ptr a -> t a -> IO ()
 pokeTrav ptr items = sequence_ . snd $ mapAccumL
     (\i x -> (i+1, pokeElemOff ptr i x)) 0 items
+
+
+-- manual imports
+
+foreign import ccall "set_field_status"
+    set_field_status :: Field -> CInt -> IO CInt
