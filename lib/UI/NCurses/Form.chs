@@ -21,6 +21,8 @@ import UI.NCurses ()
 #   include <ncursesw/form.h>
 #endif
 
+{# pointer *WINDOW as Window nocode #}
+
 {# pointer *FIELD as Field nocode #}
 newtype Field = Field { fieldPtr :: Ptr Field }
     deriving (Show, Storable)
@@ -50,9 +52,20 @@ setContents fi str = Curses $ do
     ptr <- newCString str
     checkRC "setContents" =<< {# call set_field_buffer #} fi 0 ptr
 
+setBackground :: Field -> [Attribute] -> Curses ()
+setBackground fi attrs = Curses $ checkRC "setBackground" =<<
+    {# call set_field_fore #} fi (foldl (\i j -> i .|. attrToInt j) 0 attrs) 
+
 setForeground :: Field -> [Attribute] -> Curses ()
 setForeground fi attrs = Curses $ checkRC "setForeground" =<<
     {# call set_field_fore #} fi (foldl (\i j -> i .|. attrToInt j) 0 attrs) 
+
+setOpts :: Field -> [FieldOpt] -> Curses ()
+setOpts field opts = Curses $ checkRC "setOpts" =<<
+    {# call set_field_opts #} field (l2b opts)
+
+fieldOpts :: Field -> Curses [FieldOpt]
+fieldOpts field = Curses $ b2l <$> {# call field_opts #} field
 
 {# pointer *FORM as Form nocode #}
 newtype Form = Form { formPtr :: Ptr Form }
@@ -73,9 +86,41 @@ postForm fo = Curses $ checkRC "postForm" =<< {# call post_form #} fo
 unpostForm :: Form -> Curses ()
 unpostForm fo = Curses $ checkRC "postForm" =<< {# call unpost_form #} fo
 
+setWin :: Form -> Window -> Curses ()
+setWin fo win = Curses $ checkRC "setWin" =<< {# call set_form_win #} fo win
+
+setSubWin :: Form -> Window -> Curses ()
+setSubWin fo wi = Curses $ checkRC "setSubWin" =<< {# call set_form_sub #} fo wi
+
+
+-- defines
+
+{# enum define FieldOpt
+    { O_ACTIVE as Active
+    , O_AUTOSKIP as AutoSkip
+    , O_BLANK as Blank
+    , O_EDIT as Edit
+    , O_NULLOK as NullOk
+    , O_PASSOK as PassOk
+    , O_PUBLIC as Public
+    , O_STATIC as Static
+    , O_VISIBLE as Visible
+    , O_WRAP as Wrap
+    } deriving (Show, Eq, Ord) #}
+
 --
 -- utils
 --
+
+l2b :: (Integral b, Enum a) => [a] -> b
+l2b xs = fromIntegral $ foldl (.|.) zeroBits (fromEnum <$> xs)
+
+b2l :: (FiniteBits a, Enum b) => a -> [b]
+b2l b = toEnum <$> bits where
+    bits = bit <$> (filter (testBit b) [0..(finiteBitSize b)])
+
+fe :: Enum a => a -> CInt
+fe = fromIntegral . fromEnum
 
 mallocFields :: [Field] -> IO (Ptr Field)
 mallocFields [] = return nullPtr
@@ -86,7 +131,6 @@ mallocFields fs = do
     pokeElemOff ptr l (Field nullPtr)
     return ptr
     
-
 pokeTrav :: (Storable a, Traversable t) => Ptr a -> t a -> IO ()
 pokeTrav ptr items = sequence_ . snd $ mapAccumL
     (\i x -> (i+1, pokeElemOff ptr i x)) 0 items
