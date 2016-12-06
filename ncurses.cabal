@@ -115,8 +115,8 @@ library
     UI.NCurses
     UI.NCurses.Panel
     UI.NCurses.Menu
+    UI.NCurses.Form
     -- UI.NCurses.Simple
-    -- UI.NCurses.Form
 
   other-modules:
     UI.NCurses.Enums
