@@ -7,9 +7,10 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 
+import Data.Char
 import Data.Traversable
 
-import Foreign  
+import Foreign hiding (void)
 import Foreign.C
 
 import UI.NCurses.Types
@@ -112,9 +113,19 @@ setWin fo win = Curses $ checkRC "setWin" =<< {# call set_form_win #} fo win
 setSubWin :: Form -> Window -> Curses ()
 setSubWin fo wi = Curses $ checkRC "setSubWin" =<< {# call set_form_sub #} fo wi
 
+formWin :: Form -> Curses Window
+formWin form = Curses $ do  
+    ptr <- {# call form_win #} form
+    when (ptr == Window nullPtr) $ throwIO $ 
+        CursesException "form_win() returned NULL"
+    return ptr
+
 request :: Form -> Request -> Curses ()
-request form req = (Curses . checkRC "request") =<< 
-    formDriver form (fe req) 0
+request form req = Curses $ checkRC "request" =<< 
+    {# call form_driver #} form (fe req)
+
+write :: Form -> Char -> Curses ()
+write form char = void $ formDriver form 0 (fromIntegral $ ord char)
 
 formDriver :: Form -> CInt -> CInt -> Curses CInt
 formDriver form code char = Curses $ {# call form_driver_w #} form code char
