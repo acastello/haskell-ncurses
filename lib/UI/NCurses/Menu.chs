@@ -91,12 +91,12 @@ itemIndex :: Item -> Curses CInt
 itemIndex item = Curses $ {# call item_index #} item
 
 
--- itemValue :: Item -> Curses Bool
--- itemValue item = Curses $ (/=0) <$> {# call item_value #} item
+itemValue :: Item -> Curses Bool
+itemValue item = Curses $ cToBool <$> {# call item_value #} item
 
--- setValue :: Item -> Bool -> Curses ()
--- setValue item val = Curses $ checkRC "setValue" =<< 
-    -- {# call set_item_value #} item (fromEnum val)
+setValue :: Item -> Bool -> Curses ()
+setValue item val = Curses $ checkRC "setValue" =<< 
+    {# call set_item_value #} item (cFromBool val)
 
 {# pointer *MENU as Menu nocode #}
 newtype Menu = Menu { menuPtr :: Ptr Menu }
@@ -173,6 +173,13 @@ swapIndices menu i j = Curses $ do
     pokeElemOff ptr i it'
     pokeElemOff ptr j it
     checkRC "swapIndices" =<< {# call set_menu_items #} menu ptr
+
+moveToIndex :: Menu -> Int -> Int -> Curses ()
+moveToIndex menu i j = Curses $ do
+    ptr <- {# call menu_items #} menu
+    it <- peekElemOff ptr i
+    let adv = signum (j-i)
+    
 
 
 postMenu :: Menu -> Curses ()
