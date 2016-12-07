@@ -15,6 +15,10 @@ import Foreign.C
 import UI.NCurses.Types
 import UI.NCurses ()
 
+#ifndef NCURSES_WIDECHAR
+#   define NCURSES_WIDECHAR 1
+#endif
+
 #ifdef HSNCURSES_NARROW_HEADER
 #   include <form.h>
 #else
@@ -108,6 +112,13 @@ setWin fo win = Curses $ checkRC "setWin" =<< {# call set_form_win #} fo win
 setSubWin :: Form -> Window -> Curses ()
 setSubWin fo wi = Curses $ checkRC "setSubWin" =<< {# call set_form_sub #} fo wi
 
+request :: Form -> Request -> Curses ()
+request form req = (Curses . checkRC "request") =<< 
+    formDriver form (fe req) 0
+
+formDriver :: Form -> CInt -> CInt -> Curses CInt
+formDriver form code char = Curses $ {# call form_driver_w #} form code char
+
 
 -- defines
 
@@ -122,6 +133,66 @@ setSubWin fo wi = Curses $ checkRC "setSubWin" =<< {# call set_form_sub #} fo wi
     , O_STATIC as Static
     , O_VISIBLE as Visible
     , O_WRAP as Wrap
+    } deriving (Show, Eq, Ord) #}
+
+{# enum define Request
+    { REQ_BEG_FIELD     as BeginField
+    , REQ_BEG_LINE      as BeginLine
+    , REQ_CLR_EOF       as ClearEOF
+    , REQ_CLR_EOL       as ClearEOL
+    , REQ_CLR_FIELD     as ClearField
+    , REQ_DEL_CHAR      as DeleteChar
+    , REQ_DEL_LINE      as DeleteLine
+    , REQ_DEL_PREV      as DeletePrev
+    , REQ_DEL_WORD      as DeleteWord
+    , REQ_DOWN_CHAR     as DownChar
+    , REQ_DOWN_FIELD    as DownField
+    , REQ_END_FIELD     as EndField
+    , REQ_END_LINE      as EndLine
+    , REQ_FIRST_FIELD   as FirstField
+    , REQ_FIRST_PAGE    as FirstPage
+    , REQ_INS_CHAR      as InsertChar
+    , REQ_INS_LINE      as InsertLine
+    , REQ_INS_MODE      as InsertMode
+    , REQ_LAST_FIELD    as LastField
+    , REQ_LAST_PAGE     as LastPage
+    , REQ_LEFT_CHAR     as LeftChar
+    , REQ_LEFT_FIELD    as LeftField
+    , REQ_NEW_LINE      as NewLine
+    , REQ_NEXT_CHAR     as NextChar
+    , REQ_NEXT_CHOICE   as NextChoice 
+    , REQ_NEXT_FIELD    as NextField
+    , REQ_NEXT_LINE     as NextLine
+    , REQ_NEXT_PAGE     as NextPage
+    , REQ_NEXT_WORD     as NextWord
+    , REQ_OVL_MODE      as OverlayMode
+    , REQ_PREV_CHAR     as PrevChar
+    , REQ_PREV_CHOICE   as PrevChoice
+    , REQ_PREV_FIELD    as PrevField
+    , REQ_PREV_LINE     as PrevLine
+    , REQ_PREV_PAGE     as PrevPage
+    , REQ_PREV_WORD     as PrevWord
+    , REQ_RIGHT_CHAR    as RightChar
+    , REQ_RIGHT_FIELD   as RightField
+    , REQ_SCR_BCHAR     as BackChar
+    , REQ_SCR_BHPAGE    as BackHalfPage
+    , REQ_SCR_BLINE     as BackLine
+    , REQ_SCR_BPAGE     as BackPage
+    , REQ_SCR_FCHAR     as FwdChar
+    , REQ_SCR_FHPAGE    as FwdHalfPage
+    , REQ_SCR_FLINE     as FwdLine
+    , REQ_SCR_FPAGE     as FwdPage
+    , REQ_SCR_HBHALF    as HBackHalfLine
+    , REQ_SCR_HBLINE    as HBackLine
+    , REQ_SCR_HFHALF    as HFwdHalfLine
+    , REQ_SCR_HFLINE    as HFwdLine
+    , REQ_SFIRST_FIELD  as SortedFirst
+    , REQ_SLAST_FIELD   as SortedLast
+    , REQ_SNEXT_FIELD   as SortedNext
+    , REQ_SPREV_FIELD   as SortedPrev
+    , REQ_UP_CHAR       as UpChar
+    , REQ_UP_FIELD      as UpField
+    , REQ_VALIDATION    as Validate
     } deriving (Show, Eq, Ord) #}
 
 --
