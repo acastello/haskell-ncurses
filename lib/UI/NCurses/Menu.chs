@@ -71,6 +71,26 @@ freeItem item = Curses $ do
     free nam
     free des
 
+itemName :: Item -> Curses String
+itemName item = Curses $ do
+    ptr <- {# call item_name #} item
+    if ptr == nullPtr then
+        return ""
+    else
+        peekCString ptr
+
+itemDesc :: Item -> Curses String
+itemDesc item = Curses $ do
+    ptr <- {# call item_description #} item
+    if ptr == nullPtr then
+        return ""
+    else
+        peekCString ptr
+
+itemIndex :: Item -> Curses CInt
+itemIndex item = Curses $ {# call item_index #} item
+
+
 -- itemValue :: Item -> Curses Bool
 -- itemValue item = Curses $ (/=0) <$> {# call item_value #} item
 
@@ -119,6 +139,41 @@ setItems menu xs = Curses $ do
     unless (old==nullPtr) $ peekArray0 nullItem old 
         >>= unCurses . traverse_ freeItem
     free old
+
+overrideIndex :: Menu -> Int -> Item -> Curses ()
+overrideIndex menu i item = Curses $ do
+    ptr <- {# call menu_items #} menu
+    iptr <- peekElemOff ptr i
+    pokeElemOff ptr i item
+    {# call set_menu_items #} menu ptr
+    unCurses $ freeItem iptr
+
+addItems :: Traversable t => Menu -> t Item -> Curses ()
+addItems menu items = Curses $ do
+    ptr <- {# call menu_items #} menu
+    n <- fromIntegral <$> {# call item_count #} menu
+    let n' = length items
+    if n+n' == 0 then
+        return ()
+    else do
+        ptr' <- mallocArray (n+n'+1)
+        copyArray ptr' ptr n
+        pokeTrav (advancePtr ptr' n) items
+        pokeElemOff ptr' (n+n') nullItem
+        checkRC "addItems" =<< {# call set_menu_items #} menu ptr'
+        free ptr
+
+swapIndices :: Menu -> Int -> Int -> Curses ()
+swapIndices menu i j = Curses $ do
+    ptr <- {# call menu_items #} menu
+    n <- fromIntegral <$> {# call item_count #} menu
+    when (j>=n || i>=n) $ throwIO $ CursesException "out of bounds"
+    it <- peekElemOff ptr i
+    it' <- peekElemOff ptr j
+    pokeElemOff ptr i it'
+    pokeElemOff ptr j it
+    checkRC "swapIndices" =<< {# call set_menu_items #} menu ptr
+
 
 postMenu :: Menu -> Curses ()
 postMenu menu = Curses $ do

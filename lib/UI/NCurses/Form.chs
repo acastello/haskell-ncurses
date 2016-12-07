@@ -50,7 +50,7 @@ freeField fp = Curses $ checkRC "freeField" =<<
 fieldContents :: Field -> Curses String
 fieldContents fi = Curses $ do
     str <- {# call field_buffer #} fi 0
-    peekCString str
+    trim <$> peekCString str
 
 setFieldSize :: Field -> CInt -> Curses ()
 setFieldSize field n = Curses $ checkRC "setFieldSize" =<<
@@ -61,9 +61,11 @@ setChanged field = Curses $ checkRC "setChanged" =<<
     set_field_status field (cFromBool True)
 
 setContents :: Field -> String -> Curses ()
-setContents fi str = Curses $ do
-    ptr <- newCString str
-    checkRC "setContents" =<< {# call set_field_buffer #} fi 0 ptr
+setContents fi str = do
+    Curses $ do
+        ptr <- newCString str
+        checkRC "setContents" =<< {# call set_field_buffer #} fi 0 ptr
+    setChanged fi
 
 setBackground :: Field -> [Attribute] -> Curses ()
 setBackground fi attrs = Curses $ checkRC "setBackground" =<<
@@ -233,6 +235,8 @@ pokeTrav :: (Storable a, Traversable t) => Ptr a -> t a -> IO ()
 pokeTrav ptr items = sequence_ . snd $ mapAccumL
     (\i x -> (i+1, pokeElemOff ptr i x)) 0 items
 
+trim :: String -> String
+trim str =  reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace str
 
 -- manual imports
 
