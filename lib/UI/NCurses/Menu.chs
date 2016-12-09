@@ -178,7 +178,15 @@ moveToIndex :: Menu -> Int -> Int -> Curses ()
 moveToIndex menu i j = Curses $ do
     ptr <- {# call menu_items #} menu
     it <- peekElemOff ptr i
-    let adv = signum (j-i)
+    let n = abs (j-i)
+    if i<j then 
+        moveArray (ptr `advancePtr` i) (ptr `advancePtr` (i+1)) n
+    else 
+        moveArray (ptr `advancePtr` (j+1)) (ptr `advancePtr` j) n
+        
+    pokeElemOff ptr j it
+    checkRC "moveToIndex" =<< {# call set_menu_items #} menu ptr
+    
     
 
 
