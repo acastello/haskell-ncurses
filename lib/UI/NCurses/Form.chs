@@ -122,6 +122,17 @@ formWin form = Curses $ do
         CursesException "form_win() returned NULL"
     return ptr
 
+setCurrentField :: Form -> Field -> Curses ()
+setCurrentField form field = Curses $ checkRC "setCurrentField" =<<
+    {# call set_current_field #} form field
+
+currentField :: Form -> Curses Field
+currentField form = Curses $ do
+    ptr <- {# call current_field #} form
+    when (ptr == Field nullPtr) $ throwIO $
+        CursesException "current_field() return NULL"
+    return ptr
+
 request :: Form -> Request -> Curses ()
 request form req = Curses $ checkRC "request" =<< 
     {# call form_driver #} form (fe req)
