@@ -77,6 +77,7 @@ module UI.NCurses
     , drawLineV
     , clear
     , clearLine
+    , clearLines
     , setBackground
     
     -- * Attributes
@@ -176,7 +177,7 @@ module UI.NCurses
     ) where
 
 import           Control.Exception (bracket_, catch, throwIO, try)
-import           Control.Monad (when, unless)
+import           Control.Monad (when, unless, forM_)
 import           Control.Monad.Trans
 import qualified Control.Monad.Trans.Reader as R
 import           Data.Char (chr, ord)
@@ -543,6 +544,10 @@ clear = withWindow_ "clear" {# call wclear #}
 -- (inclusive) to the end of the line.
 clearLine :: Update ()
 clearLine = withWindow_ "clear" {# call wclrtoeol #}
+
+-- | Clear the given lines
+clearLines :: [Integer] -> Update ()
+clearLines xs = forM_ xs $ \line -> (moveCursor line 0 >> clearLine)
 
 -- | Set the window&#x2019;s background glyph. The glyph will be drawn in
 -- place of any blank characters, and the glyph&#x2019;s attributes will be
