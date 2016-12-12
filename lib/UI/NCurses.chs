@@ -43,6 +43,7 @@ module UI.NCurses
     , subWindow
     , cloneWindow
     , moveWindow
+    , moveWindow'
     , windowPosition
     , resizeWindow
     , windowSize
@@ -176,6 +177,7 @@ module UI.NCurses
 
 import           Control.Exception (bracket_, catch, throwIO, try)
 import           Control.Monad (when, unless)
+import           Control.Monad.Trans
 import qualified Control.Monad.Trans.Reader as R
 import           Data.Char (chr, ord)
 import           Data.List (foldl')
@@ -314,10 +316,23 @@ updateWindow win (Update reader) = do
     Curses ({# call wnoutrefresh #} win >>= checkRC "updateWindow")
     return a
 
+liftCurses :: Curses a -> Update a
+liftCurses = Update . lift 
+
 -- | Moves the window to the given (row,column) coordinate.
 moveWindow :: Integer -> Integer -> Update ()
 moveWindow row col = withWindow_ "moveWindow"  $ \win ->
     {# call mvwin #} win (fromInteger row) (fromInteger col)
+
+moveWindow' :: Integer -> Integer -> Update ()
+moveWindow' row col = do
+    win <- Update $ R.ask
+    (h,w) <- windowSize
+    (sh,sw) <- liftCurses screenSize
+    unless (h>sh || w>sw) $ do
+        let row' = if row<0 then 0 else if row+h>sh then sh-h else row
+            col' = if col<0 then 0 else if col+w>sw then sw-w else col
+        moveWindow row' col'
 
 -- | Returns the current (row, column) coordinates of the window.
 windowPosition :: Update (Integer, Integer)

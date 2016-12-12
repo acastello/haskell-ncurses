@@ -174,6 +174,20 @@ swapIndices menu i j = Curses $ do
     pokeElemOff ptr j it
     checkRC "swapIndices" =<< {# call set_menu_items #} menu ptr
 
+removeIndex :: Menu -> Int -> Curses ()
+removeIndex menu i = Curses $ do
+    ptr <- {# call menu_items #} menu
+    n <- fromIntegral <$> {# call item_count #} menu
+    when (i>=n) $ throwIO $ CursesException "out of bounds"
+    it <- peekElemOff ptr i
+    let n' = n-i
+    moveArray (ptr `advancePtr` i) (ptr `advancePtr` (i+1)) n'
+    unCurses $ freeItem it
+    checkRC "removeIndex" =<< {# call set_menu_items #} menu ptr 
+
+removeItem :: Menu -> Item -> Curses ()
+removeItem menu item = itemIndex item >>= (removeIndex menu) . fromIntegral 
+
 moveToIndex :: Menu -> Int -> Int -> Curses ()
 moveToIndex menu i j = Curses $ do
     ptr <- {# call menu_items #} menu
