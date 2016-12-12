@@ -22,7 +22,7 @@ import           Control.Exception
 import           Control.Monad 
 import           Control.Monad.Fix (MonadFix, mfix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Reader (ReaderT)
+import           Control.Monad.Reader (ReaderT, MonadTrans)
 import           Data.Char (ord)
 import           Data.List (foldl')
 import           Data.Typeable
@@ -105,7 +105,7 @@ instance A.Applicative Curses where
     pure = return
     (<*>) = ap
 
-newtype Update a = Update { unUpdate :: ReaderT Window Curses a }
+newtype Update a = Update { unUpdate :: ReaderT Window Curses a } 
 
 instance Monad Update where
     return = Update . return
@@ -113,6 +113,9 @@ instance Monad Update where
 
 instance MonadFix Update where
     mfix f = Update (mfix (unUpdate . f))
+
+instance MonadIO Update where
+    liftIO = Update . liftIO 
 
 instance Functor Update where
     fmap = liftM

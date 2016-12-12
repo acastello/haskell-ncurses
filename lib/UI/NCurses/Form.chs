@@ -30,7 +30,7 @@ import UI.NCurses ()
 
 {# pointer *FIELD as Field nocode #}
 newtype Field = Field { fieldPtr :: Ptr Field }
-    deriving (Show, Storable)
+    deriving (Show, Storable, Eq, Ord)
 
 instance UserData Field where
     getDataPtr = Curses . {# call field_userptr #}
