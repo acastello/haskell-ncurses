@@ -1,4 +1,5 @@
-{-# LANGUAGE ForeignFunctionInterface, DoAndIfThenElse #-}
+{-# LANGUAGE ForeignFunctionInterface, DoAndIfThenElse,
+    OverloadedStrings  #-}
 
 -- Copyright (C) 2010 John Millikin <jmillikin@gmail.com>
 --
@@ -483,11 +484,13 @@ setColor (ColorID pair) = withWindow_ "setColor" $ \win ->
 
 -- | Add some text to the window, at the current cursor position.
 drawString :: String -> Update ()
+drawString "" = return ()
 drawString str = withWindow_ "drawString" $ \win ->
     withCWString str ({# call waddwstr #} win)
 
 -- | Add some text to the window, at the current cursor position.
 drawText :: T.Text -> Update ()
+drawText "" = return ()
 drawText txt = withWindow_ "drawText" $ \win ->
     withCWString (T.unpack txt) ({# call waddwstr #} win)
 
