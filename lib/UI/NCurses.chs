@@ -79,6 +79,7 @@ module UI.NCurses
     , clearLine
     , clearLines
     , setBackground
+    , setBackgroundFilled
     
     -- * Attributes
     , Attribute (..)
@@ -556,6 +557,10 @@ setBackground :: Glyph -> Update ()
 setBackground g = withWindow_ "setBackground" $ \win ->
     withMaybeGlyph (Just g) $ \pChar ->
     {# call wbkgrndset #} win pChar >> return 0
+
+setBackgroundFilled :: [Attribute] -> Update ()
+setBackgroundFilled attrs = withWindow_ "setBackground" $ \win ->
+    {# call wbkgd #} win $ foldl' (\acc a -> acc .|. attrToInt a) 0 attrs
 
 -- | Set a single 'Attribute' on the current window. No other attributes
 -- are modified.
