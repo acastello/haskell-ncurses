@@ -80,6 +80,11 @@ setContents fi str = do
         checkRC "setContents" =<< {# call set_field_buffer #} fi 0 ptr
     setChanged fi
 
+reposCursor :: Form -> Curses ()
+reposCursor f = Curses $ checkRC "reposCursor" =<< pos_form_cursor f
+
+foreign import ccall "pos_form_cursor" pos_form_cursor :: Form -> IO CInt
+
 setBackground :: Field -> [Attribute] -> Curses ()
 setBackground fi attrs = Curses $ checkRC "setBackground" =<<
     {# call set_field_back #} fi (foldl (\i j -> i .|. attrToInt j) 0 attrs) 
@@ -149,6 +154,18 @@ formFields form = Curses $ do
         return []
     else
         peekArray0 (Field nullPtr) ptr
+
+firstField :: Form -> Curses Field
+firstField form = Curses $ do 
+    ptr <- {# call form_fields #} form
+    peek ptr
+
+lastField :: Form -> Curses Field
+lastField form = Curses $ do
+    ptr <- {# call form_fields #} form
+    n <- {# call field_count #} form
+    peekElemOff ptr (fromIntegral n-1)
+
 
 setCurrentField :: Form -> Field -> Curses ()
 setCurrentField form field = Curses $ checkRC "setCurrentField" =<<
