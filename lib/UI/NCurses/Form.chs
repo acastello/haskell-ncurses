@@ -7,6 +7,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 
+import Data.Bifunctor (bimap)
 import Data.Char
 import Data.Traversable
 
@@ -14,7 +15,7 @@ import Foreign hiding (void)
 import Foreign.C
 
 import UI.NCurses.Types
-import UI.NCurses ()
+import UI.NCurses (updateWindow, windowPosition)
 
 #ifndef NCURSES_WIDECHAR
 #   define NCURSES_WIDECHAR 1
@@ -55,6 +56,18 @@ fieldContents fi = Curses $ do
 setFieldSize :: Field -> CInt -> Curses ()
 setFieldSize field n = Curses $ checkRC "setFieldSize" =<<
     {# call set_max_field #} field n
+
+fieldDimensions :: Field -> Curses (CInt, CInt, CInt, CInt)
+fieldDimensions field = Curses $ do
+    ptr <- mallocArray 6
+    checkRC "fieldDimensions" =<< {# call field_info #} field 
+      (ptr `advancePtr` 1) (ptr `advancePtr` 2) (ptr `advancePtr` 3) 
+      (ptr `advancePtr` 4) (ptr `advancePtr` 5) (ptr `advancePtr` 6)     
+    h <- peekElemOff ptr 0
+    w <- peekElemOff ptr 1
+    y <- peekElemOff ptr 2
+    x <- peekElemOff ptr 3
+    return (h,w,y,x)
 
 setChanged :: Field -> Curses ()
 setChanged field = Curses $ checkRC "setChanged" =<<
@@ -122,6 +135,21 @@ formWin form = Curses $ do
         CursesException "form_win() returned NULL"
     return ptr
 
+formSubWin :: Form -> Curses Window
+formSubWin form = Curses $ do
+    ptr <- {# call form_sub #} form
+    when (ptr == Window nullPtr) $ throwIO $
+        CursesException "form_sub() returned NULL"
+    return ptr
+
+formFields :: Form -> Curses [Field]
+formFields form = Curses $ do
+    ptr <- {# call form_fields #} form
+    if ptr == nullPtr then
+        return []
+    else
+        peekArray0 (Field nullPtr) ptr
+
 setCurrentField :: Form -> Field -> Curses ()
 setCurrentField form field = Curses $ checkRC "setCurrentField" =<<
     {# call set_current_field #} form field
@@ -132,6 +160,17 @@ currentField form = Curses $ do
     when (ptr == Field nullPtr) $ throwIO $
         CursesException "current_field() return NULL"
     return ptr
+
+clickForm :: Form -> CInt -> CInt -> Curses ()
+clickForm form y' x' = do
+    win <- formSubWin form
+    (y0,x0) <- bimap fromIntegral fromIntegral <$> updateWindow win windowPosition
+    fields <- formFields form
+    forM_ fields $ \field -> do
+        (h,w,y,x) <- fieldDimensions field
+        when (y'>=y0+y && y'<y0+y+h && x'>=x0+x && x'<x0+x+w) $
+            setCurrentField form field
+
 
 request :: Form -> Request -> Curses ()
 request form req = Curses $ checkRC "request" =<< 
