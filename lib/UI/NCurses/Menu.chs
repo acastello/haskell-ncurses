@@ -278,6 +278,19 @@ getIndex :: Menu -> Curses CInt
 getIndex menu = Curses $ do
     {# call item_index #} =<< {# call current_item #} menu
 
+itemAt :: Menu -> CInt -> Curses Item
+itemAt menu i = Curses $ do
+    ptr <- {# call menu_items #} menu
+    peekElemOff ptr (fromIntegral i)
+
+firstItem :: Menu -> Curses Item
+firstItem = flip itemAt 0
+
+lastItem :: Menu -> Curses Item
+lastItem menu = do
+    n <- itemCount menu
+    itemAt menu (n-1)
+
 setIndex :: Menu -> CInt -> Curses ()
 setIndex menu i = Curses $ do
     ptr <- {# call menu_items #} menu
