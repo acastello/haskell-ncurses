@@ -61,12 +61,13 @@ fieldDimensions :: Field -> Curses (CInt, CInt, CInt, CInt)
 fieldDimensions field = Curses $ do
     ptr <- mallocArray 6
     checkRC "fieldDimensions" =<< {# call field_info #} field 
-      (ptr `advancePtr` 1) (ptr `advancePtr` 2) (ptr `advancePtr` 3) 
-      (ptr `advancePtr` 4) (ptr `advancePtr` 5) (ptr `advancePtr` 6)     
+      (ptr `advancePtr` 0) (ptr `advancePtr` 1) (ptr `advancePtr` 2) 
+      (ptr `advancePtr` 3) (ptr `advancePtr` 4) (ptr `advancePtr` 5)     
     h <- peekElemOff ptr 0
     w <- peekElemOff ptr 1
     y <- peekElemOff ptr 2
     x <- peekElemOff ptr 3
+    free ptr
     return (h,w,y,x)
 
 setChanged :: Field -> Curses ()
