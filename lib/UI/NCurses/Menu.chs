@@ -290,6 +290,16 @@ currentItem menu = Curses $ {# call current_item #} menu
 setCurrent :: Menu -> Item -> Curses ()
 setCurrent menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
 
+inCurrentIndices :: Menu -> Curses a -> Curses a
+inCurrentIndices menu act = do
+    i <- getIndex menu
+    i_row <- topRow menu
+    ret <- act
+    n <- itemCount menu
+    setTopRow menu $ if i_row<n then i_row else if n == 0 then 0 else (n-1)
+    setIndex menu $ if i<n then i else if n == 0 then 0 else (n-1)
+    return ret
+
 currentData :: Menu -> Curses (Maybe a)
 currentData menu = do
     item <- currentItem menu
