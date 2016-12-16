@@ -186,7 +186,7 @@ clickForm form y' x' = do
     fields <- formFields form
     forM_ fields $ \field -> do
         (h,w,y,x) <- fieldDimensions field
-        when (y'>=y0+y && y'<y0+y+h && x'>=x0+x && x'<x0+x+w) $
+        when (y'>=y0+y && y'<y0+y+h && x'>x0+x && x'<=x0+x+w) $
             setCurrentField form field
 
 

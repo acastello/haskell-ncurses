@@ -144,6 +144,7 @@ module UI.NCurses
     -- * Event handling
     , Event (..)
     , getEvent
+    , getEvent'
     
     -- ** Keyboard events
     , Key (..)
@@ -824,7 +825,7 @@ getEvent win timeout = Curses io where
         code <- toInteger `fmap` peek ptr
         if rc == 0 then 
             return (charEvent code)
-        else if code == E.fromEnum E.KEY_MOUSE then 
+        else if code == E.fromEnum E.KEY_MOUSE then do
             mouseEvent
         else if code == E.fromEnum E.KEY_RESIZE then 
             return EventResized
@@ -833,7 +834,7 @@ getEvent win timeout = Curses io where
     charEvent = EventCharacter . chr . fromInteger
     
     mouseEvent = allocaBytes {# sizeof MEVENT #} $ \pEv -> do
-        {# call getmouse #} pEv >>= checkRC "getEvent"
+        {# call getmouse #} pEv >>= checkRC "getEventMouse"
         evID <- fmap toInteger ({# get MEVENT->id #} pEv)
         x <- fmap toInteger ({# get MEVENT->x #} pEv)
         y <- fmap toInteger ({# get MEVENT->y #} pEv)
@@ -851,6 +852,11 @@ getEvent win timeout = Curses io where
         else case M.lookup code keyMap of
             Just key -> EventSpecialKey key
             Nothing -> EventUnknown code
+
+getEvent' :: Window -> Maybe Integer -> Curses (Maybe Event)
+getEvent' win timeout = (tryCurses (getEvent win timeout)) >>=
+    either (\_ -> (getEvent' win timeout)) return  
+   
 
 data Key
     = KeyUpArrow
