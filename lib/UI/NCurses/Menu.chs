@@ -163,6 +163,19 @@ addItems menu items = Curses $ do
         checkRC "addItems" =<< {# call set_menu_items #} menu ptr'
         free ptr
 
+addItemsAt :: Traversable t => Menu -> Int -> t Item -> Curses ()
+addItemsAt menu i items = Curses $ do
+    (ptr, n) <- _items menu
+    let m = length items
+    when (n + m > 0 && i < n) $ do
+        dest <- mallocArray (n + m + 1)
+        copyArray dest ptr i
+        pokeTrav (advancePtr dest i) items
+        copyArray (advancePtr dest (i+m)) (advancePtr ptr i) (n-i)
+        pokeElemOff dest (n+m) nullItem
+        checkRC "addItemsAt" =<< {# call set_menu_items #} menu dest
+        free ptr
+
 swapIndices :: Menu -> Int -> Int -> Curses ()
 swapIndices menu i j = Curses $ do
     ptr <- {# call menu_items #} menu
@@ -415,6 +428,12 @@ b2l b = toEnum <$> bits where
 
 fe :: Enum a => a -> CInt
 fe = fromIntegral . fromEnum
+
+_items :: Integral a => Menu -> IO (Ptr Item, a)
+_items menu = do
+    ptr <- {# call menu_items #} menu
+    n <- {# call item_count #} menu
+    return (ptr, fromIntegral n)
 
 mallocItems :: Traversable t => t Item -> IO (Ptr Item)
 mallocItems items = do
