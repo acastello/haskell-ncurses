@@ -360,15 +360,17 @@ currentData menu = do
 
 setForeground :: Menu -> [Attribute] -> Curses ()
 setForeground menu attrs = Curses $ checkRC "setForeground" =<< 
-    {# call set_menu_fore #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+    {# call set_menu_fore #} menu $ fromIntegral 
+        $ (foldl (\i j -> i .|. attrToInt j) 0 attrs)
 
 setUnselectable :: Menu -> [Attribute] -> Curses ()
 setUnselectable menu attrs = Curses $ checkRC "setUnselectable" =<<
-    {# call set_menu_grey #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+    {# call set_menu_grey #} menu (foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
 
 setBackground :: Menu -> [Attribute] -> Curses ()
 setBackground menu attrs = Curses $ checkRC "setBackground" =<<
-    {# call set_menu_back #} menu (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+    {# call set_menu_back #} menu 
+      (foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
 
 menuOpts :: Menu -> Curses [MenuOpt]
 menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu
