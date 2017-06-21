@@ -288,30 +288,57 @@ setTopRow menu i = Curses $
     checkRC "setTopRow" =<< {# call set_top_row #} menu i
 
 getIndex :: Menu -> Curses CInt
-getIndex menu = Curses $ do
-    {# call item_index #} =<< {# call current_item #} menu
+getIndex menu = do
+    it <- currentItem menu
+    Curses $ maybe (return 0) {# call item_index #} it
 
 itemAt :: Menu -> CInt -> Curses Item
 itemAt menu i = Curses $ do
     ptr <- {# call menu_items #} menu
     peekElemOff ptr (fromIntegral i)
 
-firstItem :: Menu -> Curses Item
-firstItem = flip itemAt 0
+firstItem :: Menu -> Curses (Maybe Item)
+firstItem menu = do
+    _it <- itemAt menu 0
+    if _it == Item nullPtr then
+        return Nothing
+    else
+        return $ Just _it
 
-lastItem :: Menu -> Curses Item
+lastItem :: Menu -> Curses (Maybe Item)
 lastItem menu = do
     n <- itemCount menu
-    itemAt menu (n-1)
+    if n == 0 then
+        return Nothing
+    else
+        Just <$> itemAt menu (n-1)
 
 setIndex :: Menu -> CInt -> Curses ()
 setIndex menu i = Curses $ do
-    ptr <- {# call menu_items #} menu
-    item <- peekElemOff ptr (fromIntegral i)
-    checkRC "setIndex" =<< {# call set_current_item #} menu item
+    n <- unCurses $ itemCount menu
+    when (i >= n && i > 0) $ do
+        throwIO $ CursesException "index out of range"
+    when (i > 0) $ do
+        ptr <- {# call menu_items #} menu
+        item <- peekElemOff ptr (fromIntegral i)
+        checkRC "setIndex" =<< {# call set_current_item #} menu item
 
-currentItem :: Menu -> Curses Item
-currentItem menu = Curses $ {# call current_item #} menu
+currentItem :: Menu -> Curses (Maybe Item)
+currentItem menu = Curses $ do
+    it <- {# call current_item #} menu
+    if it == Item nullPtr then
+        return Nothing
+    else
+        return (Just it)
+
+currentItem' :: Menu -> Curses Item
+currentItem' menu = do
+    maybe (throwCurses $ CursesException "no items") return =<< currentItem menu
+
+withCurrentItem :: Menu -> (Item -> Curses a) -> Curses (Maybe a)
+withCurrentItem menu f = do
+    _it <- currentItem menu
+    forM _it f
 
 setCurrent :: Menu -> Item -> Curses ()
 setCurrent menu item = Curses $ checkRC "setItem" =<< {# call set_current_item #} menu item
@@ -329,10 +356,7 @@ inCurrentIndices menu act = do
 currentData :: Menu -> Curses (Maybe a)
 currentData menu = do
     item <- currentItem menu
-    if item==Item nullPtr then
-        return Nothing
-    else
-        getDataMaybe item
+    join <$> forM item getDataMaybe
 
 setForeground :: Menu -> [Attribute] -> Curses ()
 setForeground menu attrs = Curses $ checkRC "setForeground" =<< 
