@@ -360,8 +360,8 @@ currentData menu = do
 
 setForeground :: Menu -> [Attribute] -> Curses ()
 setForeground menu attrs = Curses $ checkRC "setForeground" =<< 
-    {# call set_menu_fore #} menu $ fromIntegral 
-        $ (foldl (\i j -> i .|. attrToInt j) 0 attrs)
+    {# call set_menu_fore #} menu 
+        (fromIntegral $ (foldl (\i j -> i .|. attrToInt j) 0 attrs))
 
 setUnselectable :: Menu -> [Attribute] -> Curses ()
 setUnselectable menu attrs = Curses $ checkRC "setUnselectable" =<<
