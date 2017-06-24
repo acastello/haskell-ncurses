@@ -195,10 +195,23 @@ request form req = Curses $ checkRC "request" =<<
     {# call form_driver #} form (fe req)
 
 write :: Form -> Char -> Curses ()
-write form char = void $ formDriver form 0 (fromIntegral $ ord char)
+write form char = void $ do 
+    let param = fromIntegral $ ord char
+#ifdef NCURSES_WIDECHAR
+    formDriver form 0 param
+#else
+    formDriver form param
+#endif
+
+#ifdef NCURSES_WIDECHAR
 
 formDriver :: Form -> CInt -> CInt -> Curses CInt
 formDriver form code char = Curses $ {# call form_driver_w #} form code char
+#else
+
+formDriver :: Form -> CInt -> Curses CInt
+formDriver form code = Curses $ {# call form_driver #} form code
+#endif
 
 
 -- defines

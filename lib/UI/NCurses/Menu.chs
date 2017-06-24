@@ -5,12 +5,11 @@ module UI.NCurses.Menu where
 
 import Data.Char
 import Data.Foldable
-import Data.IORef
 import Data.Maybe (catMaybes)
 import Data.Traversable
 
 import Control.Monad
-import Control.Exception (throwIO, try)
+import Control.Exception (throwIO)
 
 import Foreign hiding (void)
 import Foreign.C
@@ -46,6 +45,7 @@ instance UserData Item where
     setDataPtr e v = Curses $ checkRC "setUserPtr" =<< 
         {# call set_item_userptr #} e v
 
+nullItem :: Item
 nullItem = Item nullPtr
 
 newItem :: String -> String -> Curses Item
@@ -365,12 +365,13 @@ setForeground menu attrs = Curses $ checkRC "setForeground" =<<
 
 setUnselectable :: Menu -> [Attribute] -> Curses ()
 setUnselectable menu attrs = Curses $ checkRC "setUnselectable" =<<
-    {# call set_menu_grey #} menu (foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
+    {# call set_menu_grey #} menu 
+      (fromIntegral $ foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
 
 setBackground :: Menu -> [Attribute] -> Curses ()
 setBackground menu attrs = Curses $ checkRC "setBackground" =<<
     {# call set_menu_back #} menu 
-      (foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
+      (fromIntegral $ foldl (\i j -> fromIntegral i .|. (attrToInt j)) 0 attrs)
 
 menuOpts :: Menu -> Curses [MenuOpt]
 menuOpts menu = Curses $ b2l <$> {# call menu_opts #} menu
