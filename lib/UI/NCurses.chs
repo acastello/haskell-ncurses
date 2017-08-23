@@ -101,6 +101,7 @@ module UI.NCurses
     , setColorID
     , maxColorID
     , unsafeColorID
+    , unsafeNewColorID
     
     -- * Glyphs
     , Glyph (..)
@@ -192,6 +193,8 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import           Foreign hiding (shift, void)
 import           Foreign.C
+
+import           System.IO.Unsafe
 
 import           Text.Printf (printf)
 
@@ -652,7 +655,14 @@ newColorID fg bg n = Curses $ do
     return (ColorID (fromIntegral n))
 
 unsafeColorID :: Int -> ColorID
-unsafeColorID = ColorID . fromIntegral
+unsafeColorID n = unsafePerformIO $ do
+    m <- fromIntegral <$> unCurses maxColorID
+    return $ ColorID (1 + (fromIntegral (n-1) `mod` m))
+
+unsafeNewColorID :: Color -> Color -> Int -> Curses ColorID
+unsafeNewColorID fg bg n = do
+    m <- maxColorID
+    newColorID fg bg $ 1 + ((n-1) `mod` m)
 
 -- Change the definition of an existing 'ColorID'
 setColorID :: Color -- ^ Foreground
