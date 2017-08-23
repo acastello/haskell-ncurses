@@ -100,6 +100,7 @@ module UI.NCurses
     , newColorID
     , setColorID
     , maxColorID
+    , unsafeColorID
     
     -- * Glyphs
     , Glyph (..)
@@ -858,8 +859,8 @@ getEvent win timeout = Curses io where
     codeF0 = E.fromEnum E.KEY_F0
     codeF64 = codeF0 + 64
     keyEvent code = return $ if code >= codeF0 && code <= codeF64
-        then EventSpecialKey (KeyFunction (code - codeF0))
-        else case M.lookup code keyMap of
+        then EventSpecialKey (KeyFunction (fromIntegral $ code - codeF0))
+        else case M.lookup (fromIntegral code) keyMap of
             Just key -> EventSpecialKey key
             Nothing -> EventUnknown code
 
@@ -958,7 +959,7 @@ data Key
     deriving (Show, Eq, Ord)
 
 keyMap :: M.Map Int Key
-keyMap = M.fromList $ map (\(enum, key) -> (E.fromEnum enum, key))
+keyMap = M.fromList $ map (\(enum, key) -> (fromIntegral $ E.fromEnum enum, key))
     [ (E.KEY_DOWN, KeyDownArrow)
     , (E.KEY_UP, KeyUpArrow)
     , (E.KEY_LEFT, KeyLeftArrow)
