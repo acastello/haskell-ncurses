@@ -316,11 +316,10 @@ lastItem menu = do
 setIndex :: Menu -> CInt -> Curses ()
 setIndex menu i = Curses $ do
     n <- unCurses $ itemCount menu
-    when (i >= n && i > 0) $ do
-        throwIO $ CursesException "index out of range"
-    when (i > 0) $ do
+    when (n > 0) $ do
         ptr <- {# call menu_items #} menu
-        item <- peekElemOff ptr (fromIntegral i)
+        item <- peekElemOff ptr 
+                $ fromIntegral $ max 0 $ min (n-1) i
         checkRC "setIndex" =<< {# call set_current_item #} menu item
 
 currentItem :: Menu -> Curses (Maybe Item)
@@ -352,6 +351,22 @@ inCurrentIndices menu act = do
     setTopRow menu $ if i_row<n then i_row else if n == 0 then 0 else (n-1)
     setIndex menu $ if i<n then i else if n == 0 then 0 else (n-1)
     return ret
+
+-- inCurrentLayout :: Menu -> Curses a -> Curses a
+-- inCurrentLayout menu op = do
+--     i <- getIndex menu
+--     top <- topRow menu
+--     let off = i - top
+--     ret <- op
+--     i' <- getIndex menu
+--     n <- itemCount menu
+--     let new_top =
+--         if i' + off > n then
+--             if n 
+--         else
+--             i' + off
+--     setTopRow menu new_top
+--     setIndex menu i'
 
 currentData :: Menu -> Curses (Maybe a)
 currentData menu = do

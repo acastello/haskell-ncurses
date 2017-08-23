@@ -49,6 +49,7 @@ module UI.NCurses
     , resizeWindow
     , windowSize
     , updateWindow
+    -- , liftCurses
     
     -- ** Copying window content
     , OverlayMode(..)
@@ -191,6 +192,8 @@ import qualified Data.Text as T
 import           Foreign hiding (shift, void)
 import           Foreign.C
 
+import           Text.Printf (printf)
+
 import qualified UI.NCurses.Enums as E
 import           UI.NCurses.Compat
 import           UI.NCurses.Types
@@ -224,7 +227,7 @@ import           UI.NCurses.Types
 -- to text mode.
 runCurses :: Curses a -> IO a
 runCurses = bracket_ initCurses {# call endwin #} . unCurses where
-    allEvents = fromInteger (E.fromEnum E.ALL_MOUSE_EVENTS)
+    allEvents = fromIntegral (E.fromEnum E.ALL_MOUSE_EVENTS)
     initCurses = do
         void {# call initscr #}
         void {# call cbreak #}
@@ -265,17 +268,17 @@ foreign import ccall "refresh"
 -- When the window is no longer needed, call 'closeWindow'. Windows are not
 -- garbage&#x2013;collected, because there&#x2019;s no way to know if
 -- they&#x2019;re still in use (as a background, or event source, etc).
-newWindow :: Integer -- ^ Rows
-          -> Integer -- ^ Columns
-          -> Integer -- ^ Begin Y
-          -> Integer -- ^ Begin X
+newWindow :: Int -- ^ Rows
+          -> Int -- ^ Columns
+          -> Int -- ^ Begin Y
+          -> Int -- ^ Begin X
           -> Curses Window
 newWindow rows cols x y = Curses $ do
     win <- {# call newwin #}
-        (fromInteger rows)
-        (fromInteger cols)
-        (fromInteger x)
-        (fromInteger y)
+        (fromIntegral rows)
+        (fromIntegral cols)
+        (fromIntegral x)
+        (fromIntegral y)
     if windowPtr win == nullPtr
         then throwIO (CursesException "newWindow: newwin() returned NULL")
         else do
@@ -293,14 +296,15 @@ closeWindow :: Window -> Curses ()
 closeWindow win = Curses ({# call delwin #} win >>= checkRC "closeWindow")
 
 -- | Create a subwindow, with coordinates relative to the parent's
-subWindow :: Window -> Integer -> Integer -> Integer -> Integer -> Curses Window
+subWindow :: Window -> Int -> Int -> Int -> Int -> Curses Window
 subWindow win h w y x = Curses $ do
-    w <- {# call subwin #} win 
-        (fromInteger h) (fromInteger w) (fromInteger y) (fromInteger x)
-    if windowPtr w == nullPtr then
-        throwIO (CursesException "subWindow: subwin() returned NULL")
+    sw <- {# call subwin #} win 
+        (fromIntegral h) (fromIntegral w) (fromIntegral y) (fromIntegral x)
+    if windowPtr sw == nullPtr then
+        throwIO $ CursesException $ printf 
+            "subWindow: subwin() returned NULL with (%d,%d,%d,%d)" h w y x
     else
-        return w
+        return sw
 
 -- | Create a separate window, initialised with the state of an existing
 -- window.
@@ -324,11 +328,11 @@ liftCurses :: Curses a -> Update a
 liftCurses = Update . lift 
 
 -- | Moves the window to the given (row,column) coordinate.
-moveWindow :: Integer -> Integer -> Update ()
+moveWindow :: Int -> Int -> Update ()
 moveWindow row col = withWindow_ "moveWindow"  $ \win ->
-    {# call mvwin #} win (fromInteger row) (fromInteger col)
+    {# call mvwin #} win (fromIntegral row) (fromIntegral col)
 
-moveWindow' :: Integer -> Integer -> Update ()
+moveWindow' :: Int -> Int -> Update ()
 moveWindow' row col = do
     win <- Update $ R.ask
     (h,w) <- windowSize
@@ -339,23 +343,23 @@ moveWindow' row col = do
         moveWindow row' col'
 
 -- | Returns the current (row, column) coordinates of the window.
-windowPosition :: Update (Integer, Integer)
+windowPosition :: Update (Int, Int)
 windowPosition = withWindow $ \win -> do
     row <- {# call getbegy #} win
     col <- {# call getbegx #} win
-    return (toInteger row, toInteger col)
+    return (fromIntegral row, fromIntegral col)
 
 -- | Resizes the window to the given row and column dimensions.
-resizeWindow :: Integer -> Integer -> Update ()
+resizeWindow :: Int -> Int -> Update ()
 resizeWindow rows cols = withWindow_ "resizeWindow"  $ \win ->
-    {# call wresize #} win (fromInteger rows) (fromInteger cols)
+    {# call wresize #} win (fromIntegral rows) (fromIntegral cols)
 
 -- Returns the current (row, column) dimensions of the window.
-windowSize :: Update (Integer, Integer)
+windowSize :: Update (Int, Int)
 windowSize = withWindow $ \win -> do
     rows <- {# call getmaxy #} win
     cols <- {# call getmaxx #} win
-    return (toInteger rows, toInteger cols)
+    return (fromIntegral rows, fromIntegral cols)
 
 data OverlayMode
     -- | Overlay only non-blank characters.
@@ -379,21 +383,21 @@ overlay src mode = withWindow_ "overlay" $ \dst -> case mode of
 -- Use 'overlay' for copying the entire area of a window.
 copyWindow :: Window
            -> OverlayMode -- Whether to copy blank characters.
-           -> Integer -- Top-most row of the source window's overlay region (sminrow).
-           -> Integer -- Left-most column of the source window's overlay region (smincol).
-           -> Integer -- Top-most row of the destination window's overlay region (dminrow).
-           -> Integer -- Left-most column of the destination window's overlay region (dmincol).
-           -> Integer -- Bottom-most row of the destination window's overlay region (dmaxrow).
-           -> Integer -- Right-most column of the destination window's overlay region (dmaxcol).
+           -> Int -- Top-most row of the source window's overlay region (sminrow).
+           -> Int -- Left-most column of the source window's overlay region (smincol).
+           -> Int -- Top-most row of the destination window's overlay region (dminrow).
+           -> Int -- Left-most column of the destination window's overlay region (dmincol).
+           -> Int -- Bottom-most row of the destination window's overlay region (dmaxrow).
+           -> Int -- Right-most column of the destination window's overlay region (dmaxcol).
            -> Update ()
 copyWindow src mode sminrow smincol dminrow dmincol dmaxrow dmaxcol = withWindow_ "copyWindow" $ \dst -> do
     {# call copywin #} src dst
-        (fromInteger sminrow)
-        (fromInteger smincol)
-        (fromInteger dminrow)
-        (fromInteger dmincol)
-        (fromInteger dmaxrow)
-        (fromInteger dmaxcol)
+        (fromIntegral sminrow)
+        (fromIntegral smincol)
+        (fromIntegral dminrow)
+        (fromIntegral dmincol)
+        (fromIntegral dmaxrow)
+        (fromIntegral dmaxcol)
         (cFromBool (mode /= OverlayReplace))
 
 -- | A Pad is a 'Window' that is not associated with the screen.
@@ -404,13 +408,13 @@ newtype Pad = Pad Window
 -- When the pad is no longer needed, call 'closePad'. Pads are not
 -- garbage&#x2013;collected, because there&#x2019;s no way to know if
 -- they&#x2019;re still in use.
-newPad :: Integer -- ^ Rows
-       -> Integer -- ^ Columns
+newPad :: Int -- ^ Rows
+       -> Int -- ^ Columns
        -> Curses Pad
 newPad rows cols = Curses $ do
     win <- {# call newpad #}
-        (fromInteger rows)
-        (fromInteger cols)
+        (fromIntegral rows)
+        (fromIntegral cols)
     if windowPtr win == nullPtr
         then throwIO (CursesException "newPad: newpad() returned NULL")
         else do
@@ -425,52 +429,52 @@ closePad :: Pad -> Curses ()
 closePad (Pad win) = Curses ({# call delwin #} win >>= checkRC "closePad")
 
 updatePad :: Pad
-          -> Integer -- Top-most row of the pad's update region (pminrow).
-          -> Integer -- Left-most column of the pad's update region (pmincol).
-          -> Integer -- Top-most row of the screen's update region (sminrow).
-          -> Integer -- Left-most column of the screen's update region (smincol).
-          -> Integer -- Bottom-most row of the screen's update region (smaxrow).
-          -> Integer -- Right-most column of the screen's update region (smaxcol).
+          -> Int -- Top-most row of the pad's update region (pminrow).
+          -> Int -- Left-most column of the pad's update region (pmincol).
+          -> Int -- Top-most row of the screen's update region (sminrow).
+          -> Int -- Left-most column of the screen's update region (smincol).
+          -> Int -- Bottom-most row of the screen's update region (smaxrow).
+          -> Int -- Right-most column of the screen's update region (smaxcol).
           -> Update a
           -> Curses a
 updatePad (Pad win) pminrow pmincol sminrow smincol smaxrow smaxcol (Update reader) = do
     a <- R.runReaderT reader win
     Curses $
         ({# call pnoutrefresh #} win
-            (fromInteger pminrow)
-            (fromInteger pmincol)
-            (fromInteger sminrow)
-            (fromInteger smincol)
-            (fromInteger smaxrow)
-            (fromInteger smaxcol))
+            (fromIntegral pminrow)
+            (fromIntegral pmincol)
+            (fromIntegral sminrow)
+            (fromIntegral smincol)
+            (fromIntegral smaxrow)
+            (fromIntegral smaxcol))
         >>= checkRC "updatePad"
     return a
 
 -- | Move the window&#x2019;s cursor position to the given row and column.
-moveCursor :: Integer -- ^ Row
-           -> Integer -- ^ Column
+moveCursor :: Int -- ^ Row
+           -> Int -- ^ Column
            -> Update ()
 moveCursor row col = withWindow_ "moveCursor" $ \win ->
-    {# call wmove #} win (fromInteger row) (fromInteger col)
+    {# call wmove #} win (fromIntegral row) (fromIntegral col)
 
 -- | Returns the current (row,column) coordinates of the cursor.
 --
 -- This is the same as 'getCursor', but is usable within an Update.
-cursorPosition :: Update (Integer, Integer)
+cursorPosition :: Update (Int, Int)
 cursorPosition = withWindow $ \win -> do
     row <- {# call getcury #} win
     col <- {# call getcurx #} win
-    return (toInteger row, toInteger col)
+    return (fromIntegral row, fromIntegral col)
 
 -- | Return current cursor position as (row, column).
 --
 -- This is the same as 'cursorPosition', but is usable outside
 -- of an Update.
-getCursor :: Window -> Curses (Integer, Integer)
+getCursor :: Window -> Curses (Int, Int)
 getCursor win = Curses $ do
     row <- {# call getcury #} win
     col <- {# call getcurx #} win
-    return (toInteger row, toInteger col)
+    return (fromIntegral row, fromIntegral col)
 
 -- | Re&#x2013;draw any portions of the screen which have changed since the
 -- last render.
@@ -529,17 +533,17 @@ drawBox v h = drawBorder v v h h Nothing Nothing Nothing Nothing
 
 -- | Draw a horizontal line from left to right, using the given glyph and
 -- maximum character count. The cursor position is not changed.
-drawLineH :: Maybe Glyph -> Integer -> Update ()
+drawLineH :: Maybe Glyph -> Int -> Update ()
 drawLineH g n = withWindow_ "drawLineH" $ \win ->
     withMaybeGlyph g $ \pChar ->
-    {# call whline_set #} win pChar (fromInteger n)
+    {# call whline_set #} win pChar (fromIntegral n)
 
 -- | Draw a vertical line from top to bottom, using the given glyph and
 -- maximum character count. The cursor position is not changed.
-drawLineV :: Maybe Glyph -> Integer -> Update ()
+drawLineV :: Maybe Glyph -> Int -> Update ()
 drawLineV g n = withWindow_ "drawLineV" $ \win ->
     withMaybeGlyph g $ \pChar ->
-    {# call wvline_set #} win pChar (fromInteger n)
+    {# call wvline_set #} win pChar (fromIntegral n)
 
 -- | Clear the window content by drawing blanks to every position.
 clear :: Update ()
@@ -551,7 +555,7 @@ clearLine :: Update ()
 clearLine = withWindow_ "clear" {# call wclrtoeol #}
 
 -- | Clear the given lines
-clearLines :: [Integer] -> Update ()
+clearLines :: [Int] -> Update ()
 clearLines xs = forM_ xs $ \line -> (moveCursor line 0 >> clearLine)
 
 -- | Set the window&#x2019;s background glyph. The glyph will be drawn in
@@ -563,8 +567,11 @@ setBackground g = withWindow_ "setBackground" $ \win ->
     {# call wbkgrndset #} win pChar >> return 0
 
 setBackgroundFilled :: [Attribute] -> Update ()
-setBackgroundFilled attrs = withWindow_ "setBackground" $ \win ->
+setBackgroundFilled attrs = withWindow_ "setBackgroundFilled" $ \win ->
     {# call wbkgd #} win $ foldl' (\acc a -> acc .|. attrToInt a) 0 attrs
+
+-- getBackground :: Update Glyph
+-- getBackground = withWindow_ "getBackground" $ \win -> 
 
 -- | Set a single 'Attribute' on the current window. No other attributes
 -- are modified.
@@ -595,30 +602,30 @@ canDefineColor = Curses (fmap cToBool {# call can_change_color #})
 -- | Change the definition of an existing color. Use 'canDefineColor' to
 -- determine whether changing color values is possible.
 defineColor :: Color
-            -> Integer -- ^ Red (0 &#x2013; 1000)
-            -> Integer -- ^ Green (0 &#x2013; 1000)
-            -> Integer -- ^ Blue (0 &#x2013; 1000)
+            -> Int -- ^ Red (0 &#x2013; 1000)
+            -> Int -- ^ Green (0 &#x2013; 1000)
+            -> Int -- ^ Blue (0 &#x2013; 1000)
             -> Curses ()
 defineColor c r g b = Curses $ do
     rc <- {# call init_color #}
         (colorToShort c)
-        (fromInteger r)
-        (fromInteger g)
-        (fromInteger b)
+        (fromIntegral r)
+        (fromIntegral g)
+        (fromIntegral b)
     checkRC "defineColor" rc
 
 -- | Query the current definition of the given color (see 'defineColor').
 -- The returned tuple is (red, green, blue), with values 0 &#x2013; 1000.
-queryColor :: Color -> Curses (Integer, Integer, Integer)
+queryColor :: Color -> Curses (Int, Int, Int)
 queryColor c = Curses $
     alloca $ \pRed ->
     alloca $ \pGreen ->
     alloca $ \pBlue -> do
         rc <- {# call color_content #} (colorToShort c) pRed pGreen pBlue
         checkRC "queryColor" rc
-        red <- fmap toInteger (peek pRed)
-        green <- fmap toInteger (peek pGreen)
-        blue <- fmap toInteger (peek pBlue)
+        red <- fmap fromIntegral (peek pRed)
+        green <- fmap fromIntegral (peek pGreen)
+        blue <- fmap fromIntegral (peek pBlue)
         return (red, green, blue)
 
 -- | The default color ID
@@ -630,7 +637,7 @@ defaultColorID = ColorID 0
 -- 'maxColorID' to determine how many colors the current terminal supports.
 newColorID :: Color -- ^ Foreground
            -> Color -- ^ Background
-           -> Integer -- ^ A value /n/, such that
+           -> Int -- ^ A value /n/, such that
                       -- (0 < /n/ &#x2264; 'maxColorID')
            -> Curses ColorID
 newColorID fg bg n = Curses $ do
@@ -638,10 +645,13 @@ newColorID fg bg n = Curses $ do
     maxColor <- unCurses maxColorID
     unless (n <= maxColor) $ throwIO (CursesException "newColorID: n must be <= maxColorID")
     checkRC "newColorID" =<< {# call init_pair #}
-        (fromInteger n)
+        (fromIntegral n)
         (colorToShort fg)
         (colorToShort bg)
-    return (ColorID (fromInteger n))
+    return (ColorID (fromIntegral n))
+
+unsafeColorID :: Int -> ColorID
+unsafeColorID = ColorID . fromIntegral
 
 -- Change the definition of an existing 'ColorID'
 setColorID :: Color -- ^ Foreground
@@ -654,9 +664,9 @@ setColorID fg bg (ColorID n) = Curses $
         (colorToShort bg)
 
 -- | Get the maximum color ID supported by the current terminal
-maxColorID :: Curses Integer
+maxColorID :: Curses Int
 maxColorID = Curses $ do
-    pairs <- toInteger `fmap` peek c_COLOR_PAIRS
+    pairs <- fromIntegral `fmap` peek c_COLOR_PAIRS
     return (pairs - 1)
 
 foreign import ccall "static &COLOR_PAIRS"
@@ -793,10 +803,10 @@ glyphSterling = Glyph '\xa3' []
 data Event
     = EventCharacter Char
     | EventSpecialKey Key
-    | EventMouse Integer MouseState
+    | EventMouse Int MouseState
     | EventResized
     | EventUnknown Integer
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 -- | Get the next 'Event' from a given window.
 --
@@ -808,21 +818,21 @@ data Event
 --
 -- If the timeout is 0 or less, @getEvent@ will not block at all.
 getEvent :: Window
-         -> Maybe Integer -- ^ Timeout, in milliseconds
+         -> Maybe Int -- ^ Timeout, in milliseconds
          -> Curses (Maybe Event)
 getEvent win timeout = Curses io where
     io = alloca $ \ptr -> do
         {# call wtimeout #} win $ case timeout of
             Nothing -> -1
             Just n | n <= 0 -> 0
-            Just n -> fromInteger n
+            Just n -> fromIntegral n
         rc <- {# call hsncurses_wget_wch #} win ptr
-        if toInteger rc == E.fromEnum E.ERR
+        if fromIntegral rc == E.fromEnum E.ERR
             then return Nothing
             else fmap Just (parseCode ptr rc)
 
     parseCode ptr rc = do
-        code <- toInteger `fmap` peek ptr
+        code <- fromIntegral `fmap` peek ptr
         if rc == 0 then 
             return (charEvent code)
         else if code == E.fromEnum E.KEY_MOUSE then do
@@ -831,14 +841,14 @@ getEvent win timeout = Curses io where
             return EventResized
         else keyEvent code
     
-    charEvent = EventCharacter . chr . fromInteger
+    charEvent = EventCharacter . chr . fromIntegral
     
     mouseEvent = allocaBytes {# sizeof MEVENT #} $ \pEv -> do
         {# call getmouse #} pEv >>= checkRC "getEventMouse"
-        evID <- fmap toInteger ({# get MEVENT->id #} pEv)
-        x <- fmap toInteger ({# get MEVENT->x #} pEv)
-        y <- fmap toInteger ({# get MEVENT->y #} pEv)
-        z <- fmap toInteger ({# get MEVENT->z #} pEv)
+        evID <- fmap fromIntegral ({# get MEVENT->id #} pEv)
+        x <- fmap fromIntegral ({# get MEVENT->x #} pEv)
+        y <- fmap fromIntegral ({# get MEVENT->y #} pEv)
+        z <- fmap fromIntegral ({# get MEVENT->z #} pEv)
         
         mask <- {# get MEVENT->bstate #} pEv
         let state = parseMouseState mask
@@ -853,7 +863,7 @@ getEvent win timeout = Curses io where
             Just key -> EventSpecialKey key
             Nothing -> EventUnknown code
 
-getEvent' :: Window -> Maybe Integer -> Curses (Maybe Event)
+getEvent' :: Window -> Maybe Int -> Curses (Maybe Event)
 getEvent' win timeout = (tryCurses (getEvent win timeout)) >>=
     either (\_ -> (getEvent' win timeout)) return  
    
@@ -865,7 +875,7 @@ data Key
     | KeyRightArrow
     | KeyHome
     | KeyBackspace
-    | KeyFunction Integer -- ^ Function keys, F0 &#x2013; F64
+    | KeyFunction Int -- ^ Function keys, F0 &#x2013; F64
     | KeyDeleteLine
     | KeyInsertLine
     | KeyDeleteCharacter
@@ -945,9 +955,9 @@ data Key
     | KeyShiftedUndo
     | KeySuspend
     | KeyUndo
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
-keyMap :: M.Map Integer Key
+keyMap :: M.Map Int Key
 keyMap = M.fromList $ map (\(enum, key) -> (E.fromEnum enum, key))
     [ (E.KEY_DOWN, KeyDownArrow)
     , (E.KEY_UP, KeyUpArrow)
@@ -1042,27 +1052,27 @@ data ButtonState
     | ButtonClicked
     | ButtonDoubleClicked
     | ButtonTripleClicked
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 data MouseState = MouseState
-    { mouseCoordinates :: (Integer, Integer, Integer) -- ^ (X, Y, Z)
+    { mouseCoordinates :: (Int, Int, Int) -- ^ (X, Y, Z)
     
     -- | If the mouse event was caused by a change in button state,
     -- the buttons and their new state will be listed here.
-    , mouseButtons :: [(Integer, ButtonState)]
+    , mouseButtons :: [(Int, ButtonState)]
     
     , mouseAlt :: Bool
     , mouseShift :: Bool
     , mouseControl :: Bool
     }
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 mouseInterval :: CInt -> Curses ()
 mouseInterval int = Curses $ void $ {# call mouseinterval #} int
 
 parseMouseState :: MMaskT -> MouseState
 parseMouseState mask = MouseState (0, 0, 0) buttons alt shift ctrl where
-    maskI = toInteger mask
+    maskI = fromIntegral mask
     test e = (maskI .&. (E.fromEnum e)) > 0
     
     alt = test E.BUTTON_ALT
@@ -1173,11 +1183,11 @@ setEcho set = Curses (io >>= checkRC "setEcho") where
     io = if set then {# call echo #} else {# call noecho #}
 
 -- | Get the output speed of the current terminal, in bits per second.
-baudrate :: Curses Integer
+baudrate :: Curses Int
 baudrate = Curses $ do
     rc <- {# call baudrate as c_baudrate #}
     checkRC "baudrate" rc
-    return (toInteger rc)
+    return (fromIntegral rc)
 
 beep :: Curses ()
 beep = Curses ({# call beep as c_beep #} >>= checkRC "beep")
@@ -1194,18 +1204,18 @@ foreign import ccall unsafe "hsncurses_has_mouse"
 
 -- | Check if some position is contained within the given 'Window'.
 enclosed :: Window
-         -> Integer -- ^ Row
-         -> Integer -- ^ Column
+         -> Int -- ^ Row
+         -> Int -- ^ Column
          -> Curses Bool
 enclosed win row col = Curses . fmap cToBool $
-    {# call wenclose #} win (fromInteger row) (fromInteger col)
+    {# call wenclose #} win (fromIntegral row) (fromIntegral col)
 
 -- | Return (rows, columns) of current screen
-screenSize :: Curses (Integer, Integer)
+screenSize :: Curses (Int, Int)
 screenSize = Curses $ do
     rows <- peek c_LINES
     cols <- peek c_COLS
-    return (toInteger rows, toInteger cols)
+    return (fromIntegral rows, fromIntegral cols)
 
 foreign import ccall "static &LINES"
     c_LINES :: Ptr CInt
@@ -1223,13 +1233,13 @@ setTouched touched = withWindow_ "setTouched" $ if touched
 -- | Set whether particular rows in the window have been
 -- &#x201C;touched&#x201D;.
 setRowsTouched :: Bool
-                -> Integer -- ^ Start
-                -> Integer -- ^ Count
+                -> Int -- ^ Start
+                -> Int -- ^ Count
                 -> Update ()
 setRowsTouched touched start count = withWindow_ "setRowsTouched" $ \win ->
     {# call wtouchln #} win
-        (fromInteger start)
-        (fromInteger count)
+        (fromIntegral start)
+        (fromIntegral count)
         (cFromBool touched)
 
 -- | Enable/disable support for special keys.
@@ -1238,9 +1248,9 @@ setKeypad win set = Curses (io >>= checkRC "setKeypad") where
     io = {# call keypad #} win (cFromBool set)
 
 -- | Attempt to resize the terminal to the given number of lines and columns.
-resizeTerminal :: Integer -> Integer -> Curses ()
+resizeTerminal :: Int -> Int -> Curses ()
 resizeTerminal lines cols = Curses (io >>= checkRC "resizeTerminal") where
-    io = {# call resizeterm #} (fromInteger lines) (fromInteger cols)
+    io = {# call resizeterm #} (fromIntegral lines) (fromIntegral cols)
 
 withWindow :: (Window -> IO a) -> Update a
 withWindow io = Update (R.ReaderT (\win -> Curses (io win)))

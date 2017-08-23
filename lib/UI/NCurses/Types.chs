@@ -23,6 +23,7 @@ import           Control.Monad
 import           Control.Monad.Fix (MonadFix, mfix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Reader (ReaderT, MonadTrans)
+import           Data.Bits
 import           Data.Char (ord)
 import           Data.List (foldl')
 import           Data.Typeable
@@ -226,16 +227,16 @@ data Color
     deriving (Show, Eq)
 
 -- Get the maximum 'Color' supported by the current terminal.
-maxColor :: Curses Integer
+maxColor :: Curses Int
 maxColor = Curses $ do
-    count <- toInteger `fmap` peek c_COLORS
+    count <- fromIntegral <$> peek c_COLORS
     return (count - 1)
 
 foreign import ccall "static &COLORS"
     c_COLORS :: Ptr CInt
 
 
--- | A wrapper around 'Integer' to ensure clients don&#x2019;t use an
+-- | A wrapper around 'Int' to ensure clients don&#x2019;t use an
 -- uninitialized color in an attribute.
 newtype ColorID = ColorID CShort
     deriving (Show, Eq)
