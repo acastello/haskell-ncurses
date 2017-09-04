@@ -124,6 +124,14 @@ menuItems menu = Curses $ do
     else
         peekArray0 nullItem ptr
 
+forItems :: Menu -> (Item -> Curses a) -> Curses [a]
+forItems menu op = do
+    its <- menuItems menu
+    forM its op
+
+forItems_ :: Menu -> (Item -> Curses a) -> Curses ()
+forItems_ menu op = void $ forItems menu op
+
 menuData :: Menu -> Curses [a]
 menuData menu = fmap catMaybes $
     menuItems menu >>= traverse getDataMaybe 
