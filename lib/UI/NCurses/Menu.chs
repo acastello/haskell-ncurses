@@ -141,12 +141,15 @@ itemCount menu = Curses $ {# call item_count #} menu
 
 setItems :: Traversable t => Menu -> t Item -> Curses ()
 setItems menu xs = Curses $ do
+    swin <- unCurses (menuSubWin menu)
+    h <- {# call getmaxy #} swin
     old <- {# call menu_items #} menu
     ptr <- mallocItems xs
     checkRC "set_menu_items" =<< {# call set_menu_items #} menu ptr
-    unless (old==nullPtr) $ peekArray0 nullItem old 
+    unless (old == nullPtr) $ peekArray0 nullItem old 
         >>= unCurses . traverse_ freeItem
     free old
+    unCurses (setFormat menu h 0)
 
 overrideIndex :: Menu -> Int -> Item -> Curses ()
 overrideIndex menu i item = Curses $ do
